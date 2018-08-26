@@ -28,7 +28,7 @@
 #include "zend_interfaces.h"
 #include "zend_exceptions.h"
 #include "zend_variables.h"
-
+//configure 时配置信息会生成 config.h ，这里时引入confi.h,这个就可以根据是否定义宏来实行特定代码了
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -93,7 +93,7 @@ extern zend_module_entry swoole_module_entry;
 
 #define SWOOLE_PROPERTY_MAX     32
 #define SWOOLE_OBJECT_MAX       10000000
-
+//object 属性
 typedef struct
 {
     void **array;
@@ -117,15 +117,19 @@ extern swoole_object_array swoole_objects;
 
 //#define SW_USE_PHP        1
 #define SW_CHECK_RETURN(s)         if(s<0){RETURN_FALSE;}else{RETURN_TRUE;}return
+
+//swoole_lock.c 中使用到了，s !=0 时，把这个错误放到当前对象中的errCode 属性中
 #define SW_LOCK_CHECK_RETURN(s)    if(s==0){RETURN_TRUE;}else{\
 	zend_update_property_long(NULL, getThis(), SW_STRL("errCode")-1, s TSRMLS_CC);\
 	RETURN_FALSE;}return
-
+//错误log 出力
 #define swoole_php_error(level, fmt_str, ...)   if (SWOOLE_G(display_errors)) php_error_docref(NULL TSRMLS_CC, level, fmt_str, ##__VA_ARGS__)
 #define swoole_php_fatal_error(level, fmt_str, ...)   php_error_docref(NULL TSRMLS_CC, level, fmt_str, ##__VA_ARGS__)
 #define swoole_php_sys_error(level, fmt_str, ...)  if (SWOOLE_G(display_errors)) php_error_docref(NULL TSRMLS_CC, level, fmt_str" Error: %s[%d].", ##__VA_ARGS__, strerror(errno), errno)
+//释放php内存
 #define swoole_efree(p)  if (p) efree(p)
-
+//异步mysql 需要mysqli mysqlnd 库的支持
+//下面都是类似的check ,#error  是就会产生一个编译错误
 #if defined(SW_ASYNC_MYSQL)
 #if defined(SW_HAVE_MYSQLI) && defined(SW_HAVE_MYSQLND)
 #else
@@ -160,8 +164,11 @@ extern swoole_object_array swoole_objects;
 #define PHP_CLIENT_CALLBACK_NUM             4
 //--------------------------------------------------------
 #define SW_MAX_FIND_COUNT                   100    //for swoole_server::connection_list
+//  PHP_METHOD(swoole_client, recv) 中用到，默认设置接收数据大小
 #define SW_PHP_CLIENT_BUFFER_SIZE           65535
 //--------------------------------------------------------
+
+//定义 client用回调函数类型
 enum php_swoole_client_callback_type
 {
     SW_CLIENT_CB_onConnect = 1,
@@ -175,6 +182,9 @@ enum php_swoole_client_callback_type
 #endif
 };
 //--------------------------------------------------------
+
+//定义 server 用回调函数类型
+//例如 函数 php_swoole_server_get_callback 取得回调函数
 enum php_swoole_server_callback_type
 {
     //--------------------------Swoole\Server--------------------------
@@ -204,9 +214,10 @@ enum php_swoole_server_callback_type
     SW_SERVER_CB_onBufferEmpty,    //worker(event)
     //-------------------------------END--------------------------------
 };
-
+// 回调函数数量
 #define PHP_SERVER_CALLBACK_NUM             (SW_SERVER_CB_onBufferEmpty+1)
 
+//定义端口属性
 typedef struct
 {
     zval *callbacks[PHP_SERVER_CALLBACK_NUM];
@@ -220,6 +231,7 @@ typedef struct
 #define SW_FLAG_ASYNC                       (1u << 10)
 #define SW_FLAG_SYNC                        (1u << 11)
 //---------------------------------------------------------
+//定义 文件描述符类型
 enum php_swoole_fd_type
 {
     PHP_SWOOLE_FD_STREAM_CLIENT = SW_FD_STREAM_CLIENT,
@@ -249,11 +261,14 @@ typedef enum
     PHP_SWOOLE_RSHUTDOWN_END,
 } php_swoole_req_status;
 //---------------------------------------------------------
+//取得socket type
 #define php_swoole_socktype(type)           (type & (~SW_FLAG_SYNC) & (~SW_FLAG_ASYNC) & (~SW_FLAG_KEEP) & (~SW_SOCK_SSL))
+//取得array 数据个数
 #define php_swoole_array_length(array)      zend_hash_num_elements(Z_ARRVAL_P(array))
-
+//host + port 缓存长度
 #define SW_LONG_CONNECTION_KEY_LEN          64
 
+//定义class entry 指向注册class 的实例，用于读写class 的属性
 extern zend_class_entry *swoole_process_class_entry_ptr;
 extern zend_class_entry *swoole_client_class_entry_ptr;
 extern zend_class_entry *swoole_server_class_entry_ptr;
@@ -267,6 +282,9 @@ extern zval *php_sw_server_callbacks[PHP_SERVER_CALLBACK_NUM];
 extern zend_fcall_info_cache *php_sw_server_caches[PHP_SERVER_CALLBACK_NUM];
 extern zval _php_sw_server_callbacks[PHP_SERVER_CALLBACK_NUM];
 
+//下记是定义 swoole 里面的函数。
+//PHP_FUNCTION 是定义可以被php 代码访问到的代码
+//PHP_METHOD是定义class 中的方法
 PHP_MINIT_FUNCTION(swoole);
 PHP_MSHUTDOWN_FUNCTION(swoole);
 PHP_RINIT_FUNCTION(swoole);
@@ -285,6 +303,7 @@ PHP_FUNCTION(swoole_coroutine_exec);
 //---------------------------------------------------------
 //                  swoole_server
 //---------------------------------------------------------
+//定义类中的方法
 PHP_METHOD(swoole_server, __construct);
 PHP_METHOD(swoole_server, __destruct);
 PHP_METHOD(swoole_server, set);
@@ -336,6 +355,8 @@ PHP_METHOD(swoole_connection_iterator, __destruct);
 #ifdef SWOOLE_SOCKETS_SUPPORT
 PHP_METHOD(swoole_server, getSocket);
 #endif
+
+//定义事件函数
 //---------------------------------------------------------
 //                  swoole_event
 //---------------------------------------------------------
@@ -365,6 +386,7 @@ PHP_METHOD(swoole_async, exec);
 //---------------------------------------------------------
 //                  swoole_timer
 //---------------------------------------------------------
+//定时函数
 PHP_FUNCTION(swoole_timer_after);
 PHP_FUNCTION(swoole_timer_tick);
 PHP_FUNCTION(swoole_timer_exists);
@@ -377,10 +399,14 @@ PHP_FUNCTION(swoole_errno);
 //---------------------------------------------------------
 //                  serialize
 //---------------------------------------------------------
+//序列化
 PHP_FUNCTION(swoole_serialize);
 PHP_FUNCTION(swoole_fast_serialize);
 PHP_FUNCTION(swoole_unserialize);
 
+//下面是函数声明
+//TSRMLS_DC  是线程安全用的，传递一个地址，函数内部就可以使用TSRMLS_CC，来保证线程数据安全
+//可以参照  http://www.laruence.com/2008/08/03/201.html
 void swoole_destory_table(zend_resource *rsrc TSRMLS_DC);
 
 void swoole_server_port_init(int module_number TSRMLS_DC);
@@ -455,6 +481,8 @@ int php_swoole_client_isset_callback(zval *zobject, int type TSRMLS_DC);
 int php_swoole_task_pack(swEventData *task, zval *data TSRMLS_DC);
 zval* php_swoole_task_unpack(swEventData *task_result TSRMLS_DC);
 
+//从全局swoole_objects中取出对象，根据对象的handle值。
+//比如注册了一个server类，可以把handle 值作为下标放到swoole_objects中，来保存相关数据。
 static sw_inline void* swoole_get_object(zval *object)
 {
     uint32_t handle = sw_get_object_handle(object);
@@ -462,6 +490,7 @@ static sw_inline void* swoole_get_object(zval *object)
     return swoole_objects.array[handle];
 }
 
+//从全局swoole_objects中取出对象属性
 static sw_inline void* swoole_get_property(zval *object, int property_id)
 {
     uint32_t handle = sw_get_object_handle(object);
@@ -506,6 +535,7 @@ PHPAPI int php_swoole_unserialize(void *buffer, size_t len, zval *return_value, 
 int php_coroutine_reactor_can_exit(swReactor *reactor);
 #endif
 
+//根据端口，fd ,事件类型取出对应的回调函数。
 static sw_inline zval* php_swoole_server_get_callback(swServer *serv, int server_fd, int event_type)
 {
     swListenPort *port = (swListenPort *) serv->connection_list[server_fd].object;
@@ -531,6 +561,8 @@ static sw_inline zval* php_swoole_server_get_callback(swServer *serv, int server
 }
 
 #ifdef PHP_SWOOLE_ENABLE_FASTCALL
+//取得zend_fcall_info_cache ，这个是调用相关的数据信息
+//调用 判断释放是回调函数时zend_is_callable_ex，会生成zend_fcall_info_cache，可以回调时，就把这个信息保持到swoole_server_port_property中
 static sw_inline zend_fcall_info_cache* php_swoole_server_get_cache(swServer *serv, int server_fd, int event_type)
 {
     swListenPort *port = (swListenPort *) serv->connection_list[server_fd].object;
@@ -555,6 +587,7 @@ static sw_inline zend_fcall_info_cache* php_swoole_server_get_cache(swServer *se
 void php_swoole_client_check_ssl_setting(swClient *cli, zval *zset TSRMLS_DC);
 #endif
 
+//判断是否可以回调
 static sw_inline int php_swoole_is_callable(zval *callback TSRMLS_DC)
 {
     if (!callback || ZVAL_IS_NULL(callback))
@@ -574,14 +607,17 @@ static sw_inline int php_swoole_is_callable(zval *callback TSRMLS_DC)
         return SW_TRUE;
     }
 }
-
+//array 查找
 #define php_swoole_array_get_value(ht, str, v)     (sw_zend_hash_find(ht, str, sizeof(str), (void **) &v) == SUCCESS && !ZVAL_IS_NULL(v))
+
+//array 分离 arr，重新分配空间给arr 并把里面的内存merge
 #define php_swoole_array_separate(arr)       zval *_new_##arr;\
     SW_MAKE_STD_ZVAL(_new_##arr);\
     array_init(_new_##arr);\
     sw_php_array_merge(Z_ARRVAL_P(_new_##arr), Z_ARRVAL_P(arr));\
     arr = _new_##arr;
 
+//读取对象属性，读取不到时，最加一个array 类型的属性并返回。
 static sw_inline zval* php_swoole_read_init_property(zend_class_entry *scope, zval *object, const char *p, size_t pl TSRMLS_DC)
 {
     zval *property = sw_zend_read_property(scope, object, p, pl, 1 TSRMLS_CC);
@@ -598,7 +634,7 @@ static sw_inline zval* php_swoole_read_init_property(zend_class_entry *scope, zv
         return property;
     }
 }
-
+//注册global 变量，使用时swoole_globals.v
 ZEND_BEGIN_MODULE_GLOBALS(swoole)
     long aio_thread_num;
     zend_bool display_errors;
@@ -619,15 +655,17 @@ extern ZEND_DECLARE_MODULE_GLOBALS(swoole);
 #define SWOOLE_G(v) (swoole_globals.v)
 #endif
 
+//给class 定义long属性
 #define SWOOLE_DEFINE(constant)    REGISTER_LONG_CONSTANT("SWOOLE_"#constant, SW_##constant, CONST_CS | CONST_PERSISTENT)
 
+//初始化 class
 #define SWOOLE_INIT_CLASS_ENTRY(ce, name, name_ns, methods) \
     if (SWOOLE_G(use_namespace)) { \
         INIT_CLASS_ENTRY(ce, name_ns, methods); \
     } else { \
         INIT_CLASS_ENTRY(ce, name, methods); \
     }
-
+//给class 定义别名
 #define SWOOLE_CLASS_ALIAS(name, name_ns) \
     if (SWOOLE_G(use_namespace)) { \
         sw_zend_register_class_alias(#name, name##_class_entry_ptr);\
@@ -636,12 +674,14 @@ extern ZEND_DECLARE_MODULE_GLOBALS(swoole);
     }
 
 /* PHP 7.3 forward compatibility */
+//引用计数set
 #ifndef GC_SET_REFCOUNT
 # define GC_SET_REFCOUNT(p, rc) do { \
 		GC_REFCOUNT(p) = rc; \
 	} while (0)
 #endif
 
+//递归调用的计数返回
 #ifndef GC_IS_RECURSIVE
 # define GC_IS_RECURSIVE(p) \
 	(ZEND_HASH_GET_APPLY_COUNT(p) > 1)

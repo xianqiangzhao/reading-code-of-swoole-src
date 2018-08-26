@@ -65,8 +65,9 @@ static sw_inline int sw_add_assoc_double_ex(zval *arg, const char *key, size_t k
     else {k = _foreach_key->val, klen=_foreach_key->len; ktype = 1;} {
 
 #define SW_HASHTABLE_FOREACH_END()                 } ZEND_HASH_FOREACH_END();
-//这几个没用 
+
 #define Z_ARRVAL_PP(s)                             Z_ARRVAL_P(*s)
+//这几个没用 
 #define SW_Z_TYPE_P                                Z_TYPE_P        
 #define SW_Z_TYPE_PP(s)                            SW_Z_TYPE_P(*s)
 #define Z_STRVAL_PP(s)                             Z_STRVAL_P(*s)
