@@ -5,3 +5,7 @@ swoole 源码阅读
 php-wrapper.h 包裹宏定义分析
 # 8/26 update
  php_swoole.h 函数定义等分析
+
+# 8/27 update
+ swoole.c  函数定义
+ 
