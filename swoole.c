@@ -46,7 +46,7 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_swoole_void, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_swoole_server__construct, 0, 0, 1) //最后一个参数是最小要求参数个数
-    ZEND_ARG_INFO(0, host)   //第一个参数是是否为引用 1是 0 不是， host 是参数名
+    ZEND_ARG_INFO(0, host)   //第一个参数是否为引用 1是 0 不是， host 是参数名
     ZEND_ARG_INFO(0, port)
     ZEND_ARG_INFO(0, mode)
     ZEND_ARG_INFO(0, sock_type)
