@@ -25,26 +25,35 @@
 #ifdef SW_COROUTINE
 #include "swoole_coroutine.h"
 #endif
-
+//声明全局变量
 ZEND_DECLARE_MODULE_GLOBALS(swoole)
 
+//引入 sapi ，用来判断当前运行的model cli or fpm eg...
 extern sapi_module_struct sapi_module;
 
 // arginfo server
 // *_oo : for object style
 
+//server class 的参数
+//宏展开后是
+static const zend_internal_arg_info arginfo_swoole_void[] = { \
+        { (const char*)(zend_uintptr_t)(required_num_args), 0, return_reference, 0 },
+            { #name, 0, pass_by_ref, 0},
+
+               }
+
 ZEND_BEGIN_ARG_INFO_EX(arginfo_swoole_void, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_swoole_server__construct, 0, 0, 1)
-    ZEND_ARG_INFO(0, host)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_swoole_server__construct, 0, 0, 1) //最后一个参数是最小要求参数个数
+    ZEND_ARG_INFO(0, host)   //第一个参数是是否为引用 1是 0 不是， host 是参数名
     ZEND_ARG_INFO(0, port)
     ZEND_ARG_INFO(0, mode)
     ZEND_ARG_INFO(0, sock_type)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_swoole_server_set_oo, 0, 0, 1)
-    ZEND_ARG_ARRAY_INFO(0, settings, 0)
+    ZEND_ARG_ARRAY_INFO(0, settings, 0) //array 类型
 ZEND_END_ARG_INFO()
 
 //for object style
@@ -337,6 +346,26 @@ ZEND_END_ARG_INFO()
 
 static PHP_FUNCTION(swoole_last_error);
 static PHP_FUNCTION(swoole_hashcode);
+// 定义的函数结构体
+//PHP_FE 展开后是
+//#define ZEND_FE(name, arg_info)                     ZEND_FENTRY(name, ZEND_FN(name), arg_info, 0)
+//ZEND_FENTRY(name, ZEND_FN(name), arg_info, 0)   { #zend_name, name, arg_info, (uint32_t) (sizeof(arg_info)/sizeof(struct _zend_internal_arg_info)-1), flags },
+//#define ZEND_FN(name) zif_##name
+//最终是  = { "zend_name", zif_name, arg_info, (uint32_t) (sizeof(arg_info)/sizeof(struct _zend_internal_arg_info)-1), flags },
+
+
+//PHP_FUNCTION 展开后是
+//#define ZEND_FUNCTION(name)               ZEND_NAMED_FUNCTION(ZEND_FN(name))
+//#define ZEND_NAMED_FUNCTION(name)       void name(INTERNAL_FUNCTION_PARAMETERS)
+//#define INTERNAL_FUNCTION_PARAMETERS zend_execute_data *execute_data, zval *return_value
+// 最终是  = void zif_name(zend_execute_data *execute_data, zval *return_value)
+
+//从以上分析 
+//   PHP_FE(swoole_version, arginfo_swoole_void)
+//会被展开为
+// { "swoole_version", zif_swoole_version, arginfo_swoole_void, (uint32_t) (sizeof(arginfo_swoole_void)/sizeof(struct _zend_internal_arg_info)-1), 0 },
+
+//意思是 swoole_version 函数指针是 zif_swoole_version ，参数是 arginfo_swoole_void
 
 const zend_function_entry swoole_functions[] =
 {
@@ -370,7 +399,9 @@ const zend_function_entry swoole_functions[] =
     PHP_FE(swoole_async_dns_lookup_coro, arginfo_swoole_async_dns_lookup_coro)
     PHP_FE(swoole_coroutine_create, arginfo_swoole_coroutine_create)
     PHP_FE(swoole_coroutine_exec, arginfo_swoole_coroutine_exec)
-    PHP_FALIAS(go, swoole_coroutine_create, arginfo_swoole_coroutine_create)
+
+    //定义别名 go 就代表 swoole_coroutine_create
+    PHP_FALIAS(go, swoole_coroutine_create, arginfo_swoole_coroutine_create) 
 #endif
     /*------other-----*/
     PHP_FE(swoole_client_select, arginfo_swoole_client_select)
@@ -384,6 +415,8 @@ const zend_function_entry swoole_functions[] =
     PHP_FE(swoole_call_user_shutdown_begin, arginfo_swoole_void)
     PHP_FE_END /* Must be the last line in swoole_functions[] */
 };
+
+
 
 static zend_function_entry swoole_server_methods[] = {
     PHP_ME(swoole_server, __construct, arginfo_swoole_server__construct, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
