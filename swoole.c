@@ -588,7 +588,8 @@ STD_PHP_INI_ENTRY("swoole.aio_thread_num", "2", PHP_INI_ALL, OnUpdateLong, aio_t
 //宏展开 = { name, on_modify, arg1, arg2, arg3, default_value, displayer, modifiable, sizeof(name)-1, sizeof(default_value)-1 },
 //zend_swoole_globals 是全局结构体，php_swoole.h 中ZEND_BEGIN_MODULE_GLOBALS(swoole)  定义了 zend_swoole_globals 类型。
 //php_swoole.h 中 extern ZEND_DECLARE_MODULE_GLOBALS(swoole);  定义了 zend_swoole_globals 类型的变量 swoole_globals。
-
+// PHP_INI_ALL  是这个参数可以修改的范围。 OnUpdateXXX是当赋值给全局变量前，会调用的函数
+// on off 都会转为zend_bool 型 on 为1, off 为0
 STD_PHP_INI_ENTRY("swoole.display_errors", "On", PHP_INI_ALL, OnUpdateBool, display_errors, zend_swoole_globals, swoole_globals)
 /**
  * namespace class style
@@ -621,6 +622,8 @@ static void php_swoole_init_globals(zend_swoole_globals *swoole_globals)
     swoole_globals->rshutdown_functions = NULL;
 }
 
+// 调用的地方 cli->protocol.get_package_length = php_swoole_length_func;
+//去数据包长度
 int php_swoole_length_func(swProtocol *protocol, swConnection *conn, char *data, uint32_t length)
 {
     SwooleG.lock.lock(&SwooleG.lock);
@@ -633,9 +636,10 @@ int php_swoole_length_func(swProtocol *protocol, swConnection *conn, char *data,
 
     zval **args[1];
     args[0] = &zdata;
-
+    //private_data 是php 函数，用于自定义获取包大小。
+    //swoole_client.c的if (php_swoole_array_get_value(vht, "package_length_func", v))处
     zval *callback = protocol->private_data;
-
+    //判断是否为可以调用的函数
     if (sw_call_user_function_ex(EG(function_table), NULL, callback, &retval, 1, args, 0, NULL TSRMLS_CC) == FAILURE)
     {
         swoole_php_fatal_error(E_WARNING, "length function handler error.");
@@ -646,13 +650,14 @@ int php_swoole_length_func(swProtocol *protocol, swConnection *conn, char *data,
         zend_exception_error(EG(exception), E_ERROR TSRMLS_CC);
         goto error;
     }
+    //销毁zdata
     sw_zval_ptr_dtor(&zdata);
-    if (retval != NULL)
+    if (retval != NULL) //返回结果不为NULL
     {
-        convert_to_long(retval);
+        convert_to_long(retval);//转为long
         int length = Z_LVAL_P(retval);
-        sw_zval_ptr_dtor(&retval);
-        SwooleG.lock.unlock(&SwooleG.lock);
+        sw_zval_ptr_dtor(&retval);//销毁retval
+        SwooleG.lock.unlock(&SwooleG.lock); //释放锁，防止多个进程进入
         return length;
     }
     error:
@@ -660,6 +665,8 @@ int php_swoole_length_func(swProtocol *protocol, swConnection *conn, char *data,
     return -1;
 }
 
+//serv->dispatch_func = func;
+// 自定义连接分配函数 返回结果是worker_id ，即把这个连接请求分配给哪个work 进程
 int php_swoole_dispatch_func(swServer *serv, swConnection *conn, swEventData *data)
 {
     SwooleG.lock.lock(&SwooleG.lock);
@@ -718,50 +725,70 @@ int php_swoole_dispatch_func(swServer *serv, swConnection *conn, swEventData *da
     return -1;
 }
 
+//取得分配新内存大小
 static sw_inline uint32_t swoole_get_new_size(uint32_t old_size, int handle TSRMLS_DC)
 {
-    uint32_t new_size = old_size * 2;
-    if (handle > SWOOLE_OBJECT_MAX)
+    uint32_t new_size = old_size * 2; //原来的2倍
+    if (handle > SWOOLE_OBJECT_MAX) //大于10000000报错
     {
         swoole_php_fatal_error(E_ERROR, "handle %d exceed %d", handle, SWOOLE_OBJECT_MAX);
         return 0;
     }
-    while (new_size <= handle)
+    while (new_size <= handle) //new size < object 的handle 时，变成newsize 的2倍
     {
         new_size *= 2;
     }
-    if (new_size > SWOOLE_OBJECT_MAX)
+    if (new_size > SWOOLE_OBJECT_MAX) //newsize > 10000000 ,newsize = 10000000
     {
         new_size = SWOOLE_OBJECT_MAX;
     }
     return new_size;
 }
 
+//给对象绑定值
+//比如 php_swoole_server_add_port 监听端口增加函数中
+//object_init_ex(port_object, swoole_server_port_class_entry_ptr);  //实例化一个swoole_server_port_class
+//swoole_set_object(port_object, port);//把port信息绑定到port_object 中
+
+//swoole_objects 结构体定义
+//typedef struct
+// {
+//     void **array;
+//     uint32_t size;
+//     void **property[SWOOLE_PROPERTY_MAX];
+//     uint32_t property_size[SWOOLE_PROPERTY_MAX];
+// } swoole_object_array;
+
 void swoole_set_object(zval *object, void *ptr)
 {
-    int handle = sw_get_object_handle(object);
-    assert(handle < SWOOLE_OBJECT_MAX);
-    if (handle >= swoole_objects.size)
+    int handle = sw_get_object_handle(object);//取得对象的handle
+    assert(handle < SWOOLE_OBJECT_MAX); //不能大于10000000
+    // swoole_objects 是一个全局对象保存容器，模块初期时被设定成以下
+    //swoole_objects.size = 65536;  //64k
+    //swoole_objects.array = calloc(swoole_objects.size, sizeof(void*)); //向系统申请64K*8的内存来存放64K大小的指针。
+
+    if (handle >= swoole_objects.size)// handle 的数量大于=65536(初期)，要向系统分配内存
     {
         uint32_t old_size = swoole_objects.size;
-        uint32_t new_size = swoole_get_new_size(old_size, handle TSRMLS_CC);
+        uint32_t new_size = swoole_get_new_size(old_size, handle TSRMLS_CC);//新分配的内存大小
 
-        void *old_ptr = swoole_objects.array;
+        void *old_ptr = swoole_objects.array;//old 指针
         void *new_ptr = NULL;
 
-        new_ptr = realloc(old_ptr, sizeof(void*) * new_size);
+        new_ptr = realloc(old_ptr, sizeof(void*) * new_size); //重新分配
         if (!new_ptr)
         {
             swoole_php_fatal_error(E_ERROR, "malloc(%d) failed.", (int )(new_size * sizeof(void *)));
             return;
         }
-        bzero(new_ptr + (old_size * sizeof(void*)), (new_size - old_size) * sizeof(void*));
+        bzero(new_ptr + (old_size * sizeof(void*)), (new_size - old_size) * sizeof(void*));//新申请的内存初始化
         swoole_objects.array = new_ptr;
         swoole_objects.size = new_size;
     }
-    swoole_objects.array[handle] = ptr;
+    swoole_objects.array[handle] = ptr; //把ptr 指针放到swoole_objects.array中
 }
 
+//属性设定到 swoole_objects
 void swoole_set_property(zval *object, int property_id, void *ptr)
 {
     int handle = sw_get_object_handle(object);
@@ -801,6 +828,9 @@ void swoole_set_property(zval *object, int property_id, void *ptr)
     swoole_objects.property[property_id][handle] = ptr;
 }
 
+//没有地方用到 
+// 追加请求关闭时调用的函数。可以放入多个函数
+//SWOOLE_G(rshutdown_functions) = swoole_globals.rshutdown_functions  初期rshutdown_functions = NULL
 int swoole_register_rshutdown_function(swCallback func, int push_back)
 {
     if (SWOOLE_G(rshutdown_functions) == NULL)
@@ -820,14 +850,14 @@ int swoole_register_rshutdown_function(swCallback func, int push_back)
         return swLinkedList_prepend(SWOOLE_G(rshutdown_functions), func);
     }
 }
-
+//PHP_RSHUTDOWN_FUNCTION 请求关闭时调用
 void swoole_call_rshutdown_function(void *arg)
 {
-    if (SWOOLE_G(rshutdown_functions))
+    if (SWOOLE_G(rshutdown_functions)) //如果注册了就可以执行
     {
         swLinkedList *rshutdown_functions = SWOOLE_G(rshutdown_functions);
         swLinkedList_node *node = rshutdown_functions->head;
-        swCallback func = NULL;
+        swCallback func = NULL;//typedef void (*swCallback)(void *data);
 
         while (node)
         {
@@ -847,6 +877,7 @@ swoole_object_array swoole_objects;
 
 /* {{{ PHP_MINIT_FUNCTION
  */
+//模块初期化
 PHP_MINIT_FUNCTION(swoole)
 {
     ZEND_INIT_MODULE_GLOBALS(swoole, php_swoole_init_globals, NULL);
