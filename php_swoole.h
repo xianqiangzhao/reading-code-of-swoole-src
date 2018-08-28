@@ -635,7 +635,7 @@ static sw_inline zval* php_swoole_read_init_property(zend_class_entry *scope, zv
     }
 }
 //注册global 变量，使用时swoole_globals.v
-ZEND_BEGIN_MODULE_GLOBALS(swoole)
+ZEND_BEGIN_MODULE_GLOBALS(swoole)  //宏展开 = typedef struct _zend_##module_name##_globals {
     long aio_thread_num;
     zend_bool display_errors;
     zend_bool cli;
@@ -647,7 +647,7 @@ ZEND_BEGIN_MODULE_GLOBALS(swoole)
     swLinkedList *rshutdown_functions;
 ZEND_END_MODULE_GLOBALS(swoole)
 
-extern ZEND_DECLARE_MODULE_GLOBALS(swoole);
+extern ZEND_DECLARE_MODULE_GLOBALS(swoole);  //宏展开 = zend_##module_name##_globals module_name##_globals;
 
 #ifdef ZTS
 #define SWOOLE_G(v) TSRMG(swoole_globals_id, zend_swoole_globals *, v)

@@ -401,6 +401,7 @@ const zend_function_entry swoole_functions[] =
     PHP_FE(swoole_coroutine_exec, arginfo_swoole_coroutine_exec)
 
     //定义别名 go 就代表 swoole_coroutine_create
+    //go()  相当于 swoole_coroutine_create()
     PHP_FALIAS(go, swoole_coroutine_create, arginfo_swoole_coroutine_create) 
 #endif
     /*------other-----*/
@@ -417,7 +418,7 @@ const zend_function_entry swoole_functions[] =
 };
 
 
-
+//class swoole_server　的函数
 static zend_function_entry swoole_server_methods[] = {
     PHP_ME(swoole_server, __construct, arginfo_swoole_server__construct, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
     PHP_ME(swoole_server, __destruct, arginfo_swoole_void, ZEND_ACC_PUBLIC | ZEND_ACC_DTOR)
@@ -454,6 +455,7 @@ static zend_function_entry swoole_server_methods[] = {
     PHP_MALIAS(swoole_server, getClientInfo, connection_info, arginfo_swoole_connection_info, ZEND_ACC_PUBLIC)
     PHP_MALIAS(swoole_server, getClientList, connection_list, arginfo_swoole_connection_list, ZEND_ACC_PUBLIC)
     //timer
+    // 函数的别名注册 ,第一个参数是别名，第二个是上面定义的函数
     PHP_FALIAS(after, swoole_timer_after, arginfo_swoole_timer_after)
     PHP_FALIAS(tick, swoole_timer_tick, arginfo_swoole_timer_tick)
     PHP_FALIAS(clearTimer, swoole_timer_clear, arginfo_swoole_timer_clear)
@@ -472,6 +474,7 @@ static zend_function_entry swoole_server_methods[] = {
     {NULL, NULL, NULL}
 };
 
+//connection_iterator class 函数
 static const zend_function_entry swoole_connection_iterator_methods[] =
 {
     PHP_ME(swoole_connection_iterator, rewind,      arginfo_swoole_void, ZEND_ACC_PUBLIC)
@@ -488,8 +491,9 @@ static const zend_function_entry swoole_connection_iterator_methods[] =
     PHP_FE_END
 };
 
+//swoole_timer 的函数，tick 是别名，真实调用的是函数zif_XXX（第二个参数）
 static const zend_function_entry swoole_timer_methods[] =
-{
+{ 
     ZEND_FENTRY(tick, ZEND_FN(swoole_timer_tick), arginfo_swoole_timer_tick, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
     ZEND_FENTRY(after, ZEND_FN(swoole_timer_after), arginfo_swoole_timer_after, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
     ZEND_FENTRY(exists, ZEND_FN(swoole_timer_exists), arginfo_swoole_timer_exists, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
@@ -497,6 +501,7 @@ static const zend_function_entry swoole_timer_methods[] =
     PHP_FE_END
 };
 
+//swoole_event 事件函数
 static const zend_function_entry swoole_event_methods[] =
 {
     ZEND_FENTRY(add, ZEND_FN(swoole_event_add), arginfo_swoole_event_add, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
@@ -528,7 +533,7 @@ static const zend_function_entry swoole_async_methods[] =
 #if PHP_MEMORY_DEBUG
 php_vmstat_t php_vmstat;
 #endif
-
+//定义 class 类型
 zend_class_entry swoole_server_ce;
 zend_class_entry *swoole_server_class_entry_ptr;
 
@@ -547,6 +552,8 @@ static zend_class_entry *swoole_async_class_entry_ptr;
 zend_class_entry swoole_exception_ce;
 zend_class_entry *swoole_exception_class_entry_ptr;
 
+
+//module entry, php 调用模块时，会使用这个结构体
 zend_module_entry swoole_module_entry =
 {
 #if ZEND_MODULE_API_NO >= 20050922
@@ -556,13 +563,13 @@ zend_module_entry swoole_module_entry =
 #else
     STANDARD_MODULE_HEADER,
 #endif
-    "swoole",
-    swoole_functions,
-    PHP_MINIT(swoole),
-    PHP_MSHUTDOWN(swoole),
-    PHP_RINIT(swoole),     //RINIT
-    PHP_RSHUTDOWN(swoole), //RSHUTDOWN
-    PHP_MINFO(swoole),
+    "swoole",        //扩展模块名
+    swoole_functions,//函数结构体
+    PHP_MINIT(swoole), //模块初始化
+    PHP_MSHUTDOWN(swoole),//模块关闭
+    PHP_RINIT(swoole),     //RINIT   请求启动
+    PHP_RSHUTDOWN(swoole), //RSHUTDOWN 请求结束
+    PHP_MINFO(swoole),    //模块情报
     PHP_SWOOLE_VERSION,
     STANDARD_MODULE_PROPERTIES
 };
@@ -573,9 +580,15 @@ ZEND_GET_MODULE(swoole)
 
 /* {{{ PHP_INI
  */
+// php.ini 参数设定，赋值到 zend_swoole_globals
+PHP_INI_BEGIN()  // 宏展开 =static const zend_ini_entry_def ini_entries[] = {
 
-PHP_INI_BEGIN()
+
 STD_PHP_INI_ENTRY("swoole.aio_thread_num", "2", PHP_INI_ALL, OnUpdateLong, aio_thread_num, zend_swoole_globals, swoole_globals)
+//宏展开 = { name, on_modify, arg1, arg2, arg3, default_value, displayer, modifiable, sizeof(name)-1, sizeof(default_value)-1 },
+//zend_swoole_globals 是全局结构体，php_swoole.h 中ZEND_BEGIN_MODULE_GLOBALS(swoole)  定义了 zend_swoole_globals 类型。
+//php_swoole.h 中 extern ZEND_DECLARE_MODULE_GLOBALS(swoole);  定义了 zend_swoole_globals 类型的变量 swoole_globals。
+
 STD_PHP_INI_ENTRY("swoole.display_errors", "On", PHP_INI_ALL, OnUpdateBool, display_errors, zend_swoole_globals, swoole_globals)
 /**
  * namespace class style
@@ -595,6 +608,8 @@ STD_PHP_INI_ENTRY("swoole.fast_serialize", "Off", PHP_INI_ALL, OnUpdateBool, fas
 STD_PHP_INI_ENTRY("swoole.unixsock_buffer_size", "8388608", PHP_INI_ALL, OnUpdateLong, socket_buffer_size, zend_swoole_globals, swoole_globals)
 PHP_INI_END()
 
+//swoole_globals 全局参数设定（默认值设定）
+//ZEND_INIT_MODULE_GLOBALS(swoole, php_swoole_init_globals, NULL);
 static void php_swoole_init_globals(zend_swoole_globals *swoole_globals)
 {
     swoole_globals->aio_thread_num = SW_AIO_THREAD_NUM_DEFAULT;
