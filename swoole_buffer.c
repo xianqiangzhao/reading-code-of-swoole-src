@@ -14,6 +14,10 @@
   +----------------------------------------------------------------------+
 */
 
+/*
+让PHP开发者可以像C一样直接读写内存，提升程序的性能，又不用担心内存越界
+swoole_buffer申请的内存并非共享内存，所以无法在多个进程间被共享
+*/
 #include "php_swoole.h"
 
 static PHP_METHOD(swoole_buffer, __construct);
@@ -76,6 +80,7 @@ static const zend_function_entry swoole_buffer_methods[] =
 zend_class_entry swoole_buffer_ce;
 zend_class_entry *swoole_buffer_class_entry_ptr;
 
+//初始化
 void swoole_buffer_init(int module_number TSRMLS_DC)
 {
     SWOOLE_INIT_CLASS_ENTRY(swoole_buffer_ce, "swoole_buffer", "Swoole\\Buffer", swoole_buffer_methods);
@@ -103,6 +108,8 @@ static void swoole_buffer_recycle(swString *buffer)
     buffer->length = length;
 }
 
+
+//实例化 参数一个size 也就是缓冲区大小，但是不能大于1024*1024*128 即128M
 static PHP_METHOD(swoole_buffer, __construct)
 {
     long size = SW_STRING_BUFFER_DEFAULT;
@@ -122,7 +129,7 @@ static PHP_METHOD(swoole_buffer, __construct)
         zend_throw_exception_ex(swoole_exception_class_entry_ptr, errno TSRMLS_CC, "buffer size can't exceed %d", SW_STRING_BUFFER_MAXLEN);
         RETURN_FALSE;
     }
-
+    //向系统申请内存，注意不是共享内存，时进程本身向系统申请的内存。
     swString *buffer = swString_new(size);
     if (buffer == NULL)
     {
@@ -130,12 +137,13 @@ static PHP_METHOD(swoole_buffer, __construct)
         RETURN_FALSE;
     }
 
-    swoole_set_object(getThis(), buffer);
-    zend_update_property_long(swoole_buffer_class_entry_ptr, getThis(), ZEND_STRL("capacity"), size TSRMLS_CC);
-    zend_update_property_long(swoole_buffer_class_entry_ptr, getThis(), ZEND_STRL("length"), 0 TSRMLS_CC);
+    swoole_set_object(getThis(), buffer);//把buffer指针保存到swoole_objcet
+    zend_update_property_long(swoole_buffer_class_entry_ptr, getThis(), ZEND_STRL("capacity"), size TSRMLS_CC); //buffer 中的数据量
+    zend_update_property_long(swoole_buffer_class_entry_ptr, getThis(), ZEND_STRL("length"), 0 TSRMLS_CC); //已经使用的数量 0
 }
 
-static PHP_METHOD(swoole_buffer, __destruct)
+//销毁buffer
+static PHP_METHOD(woole_buffer, __destruct)
 {
     SW_PREVENT_USER_DESTRUCT;
 
@@ -146,6 +154,7 @@ static PHP_METHOD(swoole_buffer, __destruct)
     }
 }
 
+//向buffer 中追加字符串
 static PHP_METHOD(swoole_buffer, append)
 {
     swString str;
@@ -161,17 +170,17 @@ static PHP_METHOD(swoole_buffer, append)
         RETURN_FALSE;
     }
     swString *buffer = swoole_get_object(getThis());
-
+    //容量不够时，且buffer.size 大于128M时报错
     if ((str.length + buffer->length) > buffer->size && (str.length + buffer->length) > SW_STRING_BUFFER_MAXLEN)
     {
         php_error_docref(NULL TSRMLS_CC, E_WARNING, "buffer size can't exceed %d", SW_STRING_BUFFER_MAXLEN);
         RETURN_FALSE;
     }
-
+    //追加
     size_t size_old = buffer->size;
     if (swString_append(buffer, &str) == SW_OK)
     {
-        if (buffer->size > size_old)
+        if (buffer->size > size_old)//如果是向系统申请内存更大的内存的话更新capacity
         {
             zend_update_property_long(swoole_buffer_class_entry_ptr, getThis(), ZEND_STRL("capacity"), buffer->size TSRMLS_CC);
         }
@@ -185,6 +194,7 @@ static PHP_METHOD(swoole_buffer, append)
     }
 }
 
+//截取字符串
 static PHP_METHOD(swoole_buffer, substr)
 {
     long offset;
@@ -210,12 +220,12 @@ static PHP_METHOD(swoole_buffer, substr)
     {
         length = buffer->length - offset;
     }
-    if (offset + length > buffer->length)
+    if (offset + length > buffer->length)//取得的字符串超过存放的长度的话，报错
     {
         swoole_php_error(E_WARNING, "offset(%ld, %ld) is out of bounds.", offset, length);
         RETURN_FALSE;
     }
-    if (remove)
+    if (remove)//移除的话，取出并删除
     {
         buffer->offset += length;
         zend_update_property_long(swoole_buffer_class_entry_ptr, getThis(), ZEND_STRL("length"), buffer->length - buffer->offset TSRMLS_CC);
@@ -234,6 +244,7 @@ static PHP_METHOD(swoole_buffer, __toString)
     SW_RETURN_STRINGL(buffer->str + buffer->offset, buffer->length - buffer->offset, 1);
 }
 
+//buffer 中写数据
 static PHP_METHOD(swoole_buffer, write)
 {
     long offset;
@@ -273,7 +284,7 @@ static PHP_METHOD(swoole_buffer, write)
     }
 
     size_t size_old = buffer->size;
-    if (swString_write(buffer, offset, &str) == SW_OK)
+    if (swString_write(buffer, offset, &str) == SW_OK) //会自动扩容
     {
         if (buffer->size > size_old)
         {
@@ -289,6 +300,7 @@ static PHP_METHOD(swoole_buffer, write)
     }
 }
 
+//从buffer 中读
 static PHP_METHOD(swoole_buffer, read)
 {
     long offset;
@@ -321,6 +333,7 @@ static PHP_METHOD(swoole_buffer, read)
     SW_RETURN_STRINGL(buffer->str + offset, length, 1);
 }
 
+//扩容
 static PHP_METHOD(swoole_buffer, expand)
 {
     long size = -1;
@@ -358,6 +371,7 @@ static PHP_METHOD(swoole_buffer, recycle)
     zend_update_property_long(swoole_buffer_class_entry_ptr, getThis(), ZEND_STRL("length"), buffer->length TSRMLS_CC);
 }
 
+//清除 buffer
 static PHP_METHOD(swoole_buffer, clear)
 {
     swString *buffer = swoole_get_object(getThis());
