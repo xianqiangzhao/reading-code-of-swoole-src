@@ -880,19 +880,24 @@ swoole_object_array swoole_objects;
 //模块初期化
 PHP_MINIT_FUNCTION(swoole)
 {
+    //ini参数设定
     ZEND_INIT_MODULE_GLOBALS(swoole, php_swoole_init_globals, NULL);
-    REGISTER_INI_ENTRIES();
+    //调用 zend_register_ini_entries ，注册php.ini 参数
+    REGISTER_INI_ENTRIES(); 
 
     /**
      * mode type
      */
-    REGISTER_LONG_CONSTANT("SWOOLE_BASE", SW_MODE_SINGLE, CONST_CS | CONST_PERSISTENT);
-    REGISTER_LONG_CONSTANT("SWOOLE_THREAD", SW_MODE_THREAD, CONST_CS | CONST_PERSISTENT);
-    REGISTER_LONG_CONSTANT("SWOOLE_PROCESS", SW_MODE_PROCESS, CONST_CS | CONST_PERSISTENT);
+    //常量注册
+    //REGISTER_LONG_CONSTANT 展开后 = zend_register_long_constant((name), sizeof(name)-1, (lval), (flags), module_number)
+    REGISTER_LONG_CONSTANT("SWOOLE_BASE", SW_MODE_SINGLE, CONST_CS | CONST_PERSISTENT); //基本模式
+    REGISTER_LONG_CONSTANT("SWOOLE_THREAD", SW_MODE_THREAD, CONST_CS | CONST_PERSISTENT);//线程模式？？ 官方文档没有提及 目前代码里面也没有使用这个常量
+    REGISTER_LONG_CONSTANT("SWOOLE_PROCESS", SW_MODE_PROCESS, CONST_CS | CONST_PERSISTENT);//多进程模式（默认）
 
     /**
      * task ipc mode
      */
+    //task 进程通信模式
     REGISTER_LONG_CONSTANT("SWOOLE_IPC_UNSOCK", SW_TASK_IPC_UNIXSOCK, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("SWOOLE_IPC_MSGQUEUE", SW_TASK_IPC_MSGQUEUE, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("SWOOLE_IPC_PREEMPTIVE", SW_TASK_IPC_PREEMPTIVE, CONST_CS | CONST_PERSISTENT);
@@ -900,6 +905,7 @@ PHP_MINIT_FUNCTION(swoole)
     /**
      * socket type
      */
+    //socket 类型
     REGISTER_LONG_CONSTANT("SWOOLE_SOCK_TCP", SW_SOCK_TCP, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("SWOOLE_SOCK_TCP6", SW_SOCK_TCP6, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("SWOOLE_SOCK_UDP", SW_SOCK_UDP, CONST_CS | CONST_PERSISTENT);
@@ -910,6 +916,7 @@ PHP_MINIT_FUNCTION(swoole)
     /**
      * simple api
      */
+
     REGISTER_LONG_CONSTANT("SWOOLE_TCP", SW_SOCK_TCP, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("SWOOLE_TCP6", SW_SOCK_TCP6, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("SWOOLE_UDP", SW_SOCK_UDP, CONST_CS | CONST_PERSISTENT);
@@ -962,6 +969,10 @@ PHP_MINIT_FUNCTION(swoole)
 
     REGISTER_STRINGL_CONSTANT("SWOOLE_VERSION", PHP_SWOOLE_VERSION, sizeof(PHP_SWOOLE_VERSION) - 1, CONST_CS | CONST_PERSISTENT);
 
+    //ErrorCode
+    //SWOOLE_DEFINE 宏展开=  REGISTER_LONG_CONSTANT("SWOOLE_"#constant, SW_##constant, CONST_CS | CONST_PERSISTENT)
+    //# 意思是定义一个字符串 "SWOOLE_"#constant 变成 "SWOOLE_ERROR_MALLOC_FAIL"
+    //## 是连接  SW_##constant 变成 SW_ERROR_MALLOC_FAIL
     SWOOLE_DEFINE(ERROR_MALLOC_FAIL);
     SWOOLE_DEFINE(ERROR_SYSTEM_CALL_FAIL);
     SWOOLE_DEFINE(ERROR_PHP_FATAL_ERROR);
@@ -1026,6 +1037,7 @@ PHP_MINIT_FUNCTION(swoole)
     /**
      * trace log
      */
+    //TraceType
     SWOOLE_DEFINE(TRACE_SERVER);
     SWOOLE_DEFINE(TRACE_CLIENT);
     SWOOLE_DEFINE(TRACE_BUFFER);
@@ -1059,13 +1071,23 @@ PHP_MINIT_FUNCTION(swoole)
     SWOOLE_DEFINE(IPC_UNIXSOCK);
     SWOOLE_DEFINE(IPC_SOCKET);
 
+    //swoole_server 定义
+    //SWOOLE_INIT_CLASS_ENTRY 宏展开是
+    //SWOOLE_INIT_CLASS_ENTRY(ce, name, name_ns, methods) \
+     if (SWOOLE_G(use_namespace)) { \
+        INIT_CLASS_ENTRY(ce, name_ns, methods); \
+    } else { \
+        INIT_CLASS_ENTRY(ce, name, methods); \
+    }
+    //swoole_server_ce 是 zend_class_entry 类型
+    //swoole_server_class_entry_ptr 是 zend_class_entry类型的指针
     SWOOLE_INIT_CLASS_ENTRY(swoole_server_ce, "swoole_server", "Swoole\\Server", swoole_server_methods);
     swoole_server_class_entry_ptr = zend_register_internal_class(&swoole_server_ce TSRMLS_CC);
-    swoole_server_class_entry_ptr->serialize = zend_class_serialize_deny;
-    swoole_server_class_entry_ptr->unserialize = zend_class_unserialize_deny;
-    SWOOLE_CLASS_ALIAS(swoole_server, "Swoole\\Server");
+    swoole_server_class_entry_ptr->serialize = zend_class_serialize_deny;//不能被序列化
+    swoole_server_class_entry_ptr->unserialize = zend_class_unserialize_deny;//不能被序列化
+    SWOOLE_CLASS_ALIAS(swoole_server, "Swoole\\Server");// 注册类别名
 
-    if (!SWOOLE_G(use_shortname))
+    if (!SWOOLE_G(use_shortname))//是否可以用短类名
     {
         sw_zend_hash_del(CG(function_table), ZEND_STRS("go"));
     }
@@ -1073,7 +1095,7 @@ PHP_MINIT_FUNCTION(swoole)
     {
         sw_zend_register_class_alias("Co\\Server", swoole_server_class_entry_ptr);
     }
-
+    //swoole_server 的属性定义
     zend_declare_property_null(swoole_server_class_entry_ptr, ZEND_STRL("onConnect"), ZEND_ACC_PUBLIC TSRMLS_CC);
     zend_declare_property_null(swoole_server_class_entry_ptr, ZEND_STRL("onReceive"), ZEND_ACC_PUBLIC TSRMLS_CC);
     zend_declare_property_null(swoole_server_class_entry_ptr, ZEND_STRL("onClose"), ZEND_ACC_PUBLIC TSRMLS_CC);
@@ -1105,36 +1127,62 @@ PHP_MINIT_FUNCTION(swoole)
     zend_declare_property_bool(swoole_server_class_entry_ptr, ZEND_STRL("taskworker"), 0, ZEND_ACC_PUBLIC TSRMLS_CC);
     zend_declare_property_long(swoole_server_class_entry_ptr, ZEND_STRL("worker_pid"), 0, ZEND_ACC_PUBLIC TSRMLS_CC);
 
+    //swoole_timer 
     SWOOLE_INIT_CLASS_ENTRY(swoole_timer_ce, "swoole_timer", "Swoole\\Timer", swoole_timer_methods);
     swoole_timer_class_entry_ptr = zend_register_internal_class(&swoole_timer_ce TSRMLS_CC);
     SWOOLE_CLASS_ALIAS(swoole_timer, "Swoole\\Timer");
-
+    //swoole_event
     SWOOLE_INIT_CLASS_ENTRY(swoole_event_ce, "swoole_event", "Swoole\\Event", swoole_event_methods);
     swoole_event_class_entry_ptr = zend_register_internal_class(&swoole_event_ce TSRMLS_CC);
     SWOOLE_CLASS_ALIAS(swoole_event, "Swoole\\Event");
-
+    //swoole_async
     SWOOLE_INIT_CLASS_ENTRY(swoole_async_ce, "swoole_async", "Swoole\\Async", swoole_async_methods);
     swoole_async_class_entry_ptr = zend_register_internal_class(&swoole_async_ce TSRMLS_CC);
     SWOOLE_CLASS_ALIAS(swoole_async, "Swoole\\Async");
-
+    //swoole_connection_iterator
     SWOOLE_INIT_CLASS_ENTRY(swoole_connection_iterator_ce, "swoole_connection_iterator", "Swoole\\Connection\\Iterator",  swoole_connection_iterator_methods);
     swoole_connection_iterator_class_entry_ptr = zend_register_internal_class(&swoole_connection_iterator_ce TSRMLS_CC);
     SWOOLE_CLASS_ALIAS(swoole_connection_iterator, "Swoole\\Connection\\Iterator");
+    //接口继承
     zend_class_implements(swoole_connection_iterator_class_entry_ptr TSRMLS_CC, 2, zend_ce_iterator, zend_ce_arrayaccess);
 #ifdef SW_HAVE_COUNTABLE
     zend_class_implements(swoole_connection_iterator_class_entry_ptr TSRMLS_CC, 1, zend_ce_countable);
 #endif
-
+    //swoole_exception
     SWOOLE_INIT_CLASS_ENTRY(swoole_exception_ce, "swoole_exception", "Swoole\\Exception", NULL);
     swoole_exception_class_entry_ptr = sw_zend_register_internal_class_ex(&swoole_exception_ce, zend_exception_get_default(TSRMLS_C), NULL TSRMLS_CC);
     SWOOLE_CLASS_ALIAS(swoole_exception, "Swoole\\Exception");
 
     //swoole init
+    // 初期化处理
+    //src\core\base.c
+    /*
+    1、SwooleG 初始化
+        swoole.h 中定义的系统级别的全局结构体
+    2、申请共享内存
+        SwooleG.memory_pool
+    3、全局锁分配&&init global lock
+        SwooleGS_t *SwooleGS;
+    4、create tmp dir
+    5、signal 初期化
+    */
     swoole_init();
+
+    /*注册 swoole_server_port    
+    */
+
     swoole_server_port_init(module_number TSRMLS_CC);
+    /*注册 swoole_client
+      php_sw_long_connections = 创建32个 swHashMap；
+    */
     swoole_client_init(module_number TSRMLS_CC);
 #ifdef SW_COROUTINE
+    /*注册 Swoole\\Coroutine\\Socket
+      注册 Swoole\\Coroutine\\Socket\\Exception
+     */
     swoole_socket_coro_init(module_number TSRMLS_CC);
+    /*注册 Swoole\\Coroutine\\Client  短名称 Co\\Client
+    */
     swoole_client_coro_init(module_number TSRMLS_CC);
 #ifdef SW_USE_REDIS
     swoole_redis_coro_init(module_number TSRMLS_CC);
@@ -1142,50 +1190,106 @@ PHP_MINIT_FUNCTION(swoole)
 #ifdef SW_USE_POSTGRESQL
     swoole_postgresql_coro_init(module_number TSRMLS_CC);
 #endif
+
     swoole_mysql_coro_init(module_number TSRMLS_CC);
     swoole_http_client_coro_init(module_number TSRMLS_CC);
 	swoole_coroutine_util_init(module_number TSRMLS_CC);
 #endif
+    /*注册 swoole_http_client
+     创建http_client_buffer= swString_new(SW_HTTP_RESPONSE_INIT_SIZE); 65536
+        swString_new 结构体 
+        typedef struct _swString
+        {
+            size_t length;
+            size_t size;
+            off_t offset;
+            char *str;
+        } swString;
+
+        这个结果是数据缓存用的
+    */
     swoole_http_client_init(module_number TSRMLS_CC);
+
     swoole_async_init(module_number TSRMLS_CC);
+    /*注册 swoole_process 用于进程管理     
+    */
     swoole_process_init(module_number TSRMLS_CC);
+    /*注册 swoole_process_pool 用于进程池，对进程的管理管理     
+    */
     swoole_process_pool_init(module_number TSRMLS_CC);
+    /*注册 swoole_table 内存表，就是像表一样定义表的定义，并存储数据
+    */
     swoole_table_init(module_number TSRMLS_CC);
+    /*注册 Swoole\\Runtime 貌似没用到
+    */
     swoole_runtime_init(module_number TSRMLS_CC);
+    /*注册 swoole_lock 用于进程之间锁定临界数据区，达到数据安全读写。
+    */
     swoole_lock_init(module_number TSRMLS_CC);
+    /*注册 swoole_atomic 用于进程之间锁
+    */
     swoole_atomic_init(module_number TSRMLS_CC);
+    /* 注册 swoole_http_server 
+       注册 swoole_http_response 
+       注册 swoole_http_request 
+    */
     swoole_http_server_init(module_number TSRMLS_CC);
+    /* 注册 swoole_buffer 直接读写内存
+    */
     swoole_buffer_init(module_number TSRMLS_CC);
+    /* 注册 swoole_websocket_server
+    */
     swoole_websocket_init(module_number TSRMLS_CC);
+    /* 注册 swoole_mysql
+    */
     swoole_mysql_init(module_number TSRMLS_CC);
+    /* 注册 swoole_mmap
+    */
     swoole_mmap_init(module_number TSRMLS_CC);
+    /* 注册 swoole_channel 高性能内存队列
+    */
     swoole_channel_init(module_number TSRMLS_CC);
+
 #ifdef SW_COROUTINE
+    /* 注册 协程版 Swoole\\Coroutine\\Channel 高性能内存队列
+       短名称 chan
+    */
     swoole_channel_coro_init(module_number TSRMLS_CC);
 #endif
+    //RingQueue
     swoole_ringqueue_init(module_number TSRMLS_CC);
+    //消息队列
     swoole_msgqueue_init(module_number TSRMLS_CC);
 #ifdef SW_USE_HTTP2
     swoole_http2_client_init(module_number TSRMLS_CC);
 #ifdef SW_COROUTINE
+    //协程版   Swoole\\Coroutine\\Http2\\Client
     swoole_http2_client_coro_init(module_number TSRMLS_CC);
 #endif
 #endif
-
+    //swoole_serialize 初始化
     swoole_serialize_init(module_number TSRMLS_DC);
+    //Swoole\\Memory\\Pool 初始化
+    //共享内存读写
     swoole_memory_pool_init(module_number TSRMLS_DC);
 
 #ifdef SW_USE_REDIS
+    //注册 swoole_redis
     swoole_redis_init(module_number TSRMLS_CC);
 #endif
+    //注册 swoole_redis_server
     swoole_redis_server_init(module_number TSRMLS_CC);
 
-    if (SWOOLE_G(socket_buffer_size) > 0)
+    if (SWOOLE_G(socket_buffer_size) > 0)//php.ini 的buffer_size 赋值到 全局结构体 SwooleG中
     {
         SwooleG.socket_buffer_size = SWOOLE_G(socket_buffer_size);
     }
-
-#ifdef __MACH__
+    //Linux __linux__
+    //FreeBSD __FreeBSD__
+    //Unix __unix__
+    //Windows _WIN32 32位和64位系统都有定义
+      //_WIN64 仅64位系统有定义 
+#ifdef __MACH__  //Mac OS X 
     SwooleG.socket_buffer_size = 256 * 1024;
 #endif
 
@@ -1202,13 +1306,13 @@ PHP_MINIT_FUNCTION(swoole)
         SwooleAIO.thread_num = SWOOLE_G(aio_thread_num);
     }
 
-    if (strcasecmp("cli", sapi_module.name) == 0)
+    if (strcasecmp("cli", sapi_module.name) == 0) //判断是否为cli 模式
     {
         SWOOLE_G(cli) = 1;
     }
 
-    swoole_objects.size = 65536;
-    swoole_objects.array = calloc(swoole_objects.size, sizeof(void*));
+    swoole_objects.size = 65536; //swoole_objects对象的大小
+    swoole_objects.array = calloc(swoole_objects.size, sizeof(void*)); //向系统申请分配内存
 
     return SUCCESS;
 }
@@ -1216,6 +1320,7 @@ PHP_MINIT_FUNCTION(swoole)
 
 /* {{{ PHP_MINIT_FUNCTION
  */
+//模块关闭
 PHP_MSHUTDOWN_FUNCTION(swoole)
 {
     swoole_clean();
@@ -1227,6 +1332,7 @@ PHP_MSHUTDOWN_FUNCTION(swoole)
 
 /* {{{ PHP_MINFO_FUNCTION
  */
+// phpinfo 输出信息
 PHP_MINFO_FUNCTION(swoole)
 {
     php_info_print_table_start();
@@ -1328,10 +1434,13 @@ PHP_MINFO_FUNCTION(swoole)
 }
 /* }}} */
 
+//请求进来时执行
 PHP_RINIT_FUNCTION(swoole)
 {
     SWOOLE_G(req_status) = PHP_SWOOLE_RINIT_BEGIN;
+    //注册请求关闭时的函数
     php_swoole_at_shutdown("swoole_call_user_shutdown_begin");
+    //设定 swoole 服务启动标识
     //running
     SwooleG.running = 1;
 
@@ -1341,7 +1450,7 @@ PHP_RINIT_FUNCTION(swoole)
         TSRMLS_SET_CTX(sw_thread_ctx);
     }
 #endif
-
+   //client open  debug 目前貌似没有用到。
 #ifdef SW_DEBUG_REMOTE_OPEN
     swoole_open_remote_debug();
 #endif
@@ -1349,18 +1458,20 @@ PHP_RINIT_FUNCTION(swoole)
     return SUCCESS;
 }
 
+//请求结束时
 PHP_RSHUTDOWN_FUNCTION(swoole)
 {
     SWOOLE_G(req_status) = PHP_SWOOLE_RSHUTDOWN_BEGIN;
+    //貌似没有用到
     swoole_call_rshutdown_function(NULL);
     //clear pipe buffer
-    if (swIsWorker())
+    if (swIsWorker())//SwooleG.process_type==SW_PROCESS_WORKER 当前进程类型是worker 的话，执行 swWorker_clean
     {
-        swWorker_clean();
+        swWorker_clean();//主要是调用 swReactor_wait_write_buffer 把没有发出去的数据发送去。
     }
 
     if (SwooleG.serv && SwooleG.serv->gs->start > 0 && SwooleG.running > 0)
-    {
+    {   //判断是否有错误，并输出
         if (PG(last_error_message))
         {
             switch(PG(last_error_type))
@@ -1390,17 +1501,22 @@ PHP_RSHUTDOWN_FUNCTION(swoole)
     SwooleWG.reactor_wait_onexit = 0;
 
 #ifdef SW_COROUTINE
+    //有协程支持的话，释放
     coro_destroy(TSRMLS_C);
 #endif
+    //请求状态更新为shutdown
     SWOOLE_G(req_status) = PHP_SWOOLE_RSHUTDOWN_END;
     return SUCCESS;
 }
 
+//返回版本函数 
+//使用例子 <?php  echo swoole_version();
 PHP_FUNCTION(swoole_version)
 {
     SW_RETURN_STRING(PHP_SWOOLE_VERSION, 1);
 }
 
+//hash 
 static uint32_t hashkit_one_at_a_time(const char *key, size_t key_length)
 {
     const char *ptr = key;
@@ -1420,19 +1536,22 @@ static uint32_t hashkit_one_at_a_time(const char *key, size_t key_length)
     return value;
 }
 
+//hash code 取得
 static PHP_FUNCTION(swoole_hashcode)
 {
     char *data;
     zend_size_t l_data;
     zend_long type = 0;
 
-#ifdef FAST_ZPP
-    ZEND_PARSE_PARAMETERS_START(1, 2)
-        Z_PARAM_STRING(data, l_data)
+#ifdef FAST_ZPP  //在PHP7中新提供的方式。是为了提高参数解析的性能。对应经常使用的方法，建议使用FAST ZPP方式。
+    //ZEND_PARSE_PARAMETERS_START
+    ZEND_PARSE_PARAMETERS_START(1, 2) //最少1个参数，最多2个参数
+        Z_PARAM_STRING(data, l_data)  //接收string 类型的参数,放到data
         Z_PARAM_OPTIONAL
         Z_PARAM_LONG(type)
     ZEND_PARSE_PARAMETERS_END();
 #else
+    //在PHP7之前一直使用zend_parse_parameters函数获取参数
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", &data, &l_data, &type) == FAILURE)
     {
         return;
@@ -1451,7 +1570,7 @@ static PHP_FUNCTION(swoole_last_error)
 {
     RETURN_LONG(SwooleG.error);
 }
-
+//取得cpu 核心数
 PHP_FUNCTION(swoole_cpu_num)
 {
     long cpu_num = 1;
@@ -1463,6 +1582,7 @@ PHP_FUNCTION(swoole_cpu_num)
     RETURN_LONG(cpu_num);
 }
 
+//取得错误信息
 PHP_FUNCTION(swoole_strerror)
 {
     long swoole_errno = 0;
@@ -1475,24 +1595,31 @@ PHP_FUNCTION(swoole_strerror)
     }
     if (error_type == 1)
     {
+        //gai_strerror 能取得 getaddrinfo() and getnameinfo()失败时的错误信息 
+        //http://man7.org/linux/man-pages/man3/gai_strerror.3p.html
         snprintf(error_msg, sizeof(error_msg) - 1, "%s", gai_strerror(swoole_errno));
     }
     else if (error_type == 2)
-    {
+    {   //取得 socket错误原因的信息
         snprintf(error_msg, sizeof(error_msg) - 1, "%s", hstrerror(swoole_errno));
     }
     else
-    {
+    {   //错误信息
+        //http://man7.org/linux/man-pages/man3/strerror.3.html
         snprintf(error_msg, sizeof(error_msg) - 1, "%s", strerror(swoole_errno));
     }
     SW_RETURN_STRING(error_msg, 1);
 }
 
+//取得错误号
 PHP_FUNCTION(swoole_errno)
 {
     RETURN_LONG(errno);
 }
 
+
+//设置进程title
+//用法 ：swoole_set_process_name("php {$argv[0]}: worker");
 PHP_FUNCTION(swoole_set_process_name)
 {
     // MacOS doesn't support 'cli_set_process_title'
@@ -1528,7 +1655,7 @@ PHP_FUNCTION(swoole_set_process_name)
 
     zval *function;
     SW_MAKE_STD_ZVAL(function);
-    SW_ZVAL_STRING(function, "cli_set_process_title", 1);
+    SW_ZVAL_STRING(function, "cli_set_process_title", 1);//调用函数cli_set_process_title
 
     if (sw_call_user_function_ex(EG(function_table), NULL, function, &retval, 1, args, 0, NULL TSRMLS_CC) == FAILURE)
     {
@@ -1538,12 +1665,14 @@ PHP_FUNCTION(swoole_set_process_name)
     {
         zend_exception_error(EG(exception), E_ERROR TSRMLS_CC);
     }
-    sw_zval_ptr_dtor(&function);
+    sw_zval_ptr_dtor(&function);//销毁function
     if (retval)
     {
         sw_zval_ptr_dtor(&retval);
     }
 }
+
+//取得本地IP
 
 PHP_FUNCTION(swoole_get_local_ip)
 {
@@ -1552,13 +1681,13 @@ PHP_FUNCTION(swoole_get_local_ip)
     void *in_addr;
     char ip[64];
 
-    if (getifaddrs(&ipaddrs) != 0)
+    if (getifaddrs(&ipaddrs) != 0) //http://man7.org/linux/man-pages/man3/getifaddrs.3.html
     {
         php_error_docref(NULL TSRMLS_CC, E_WARNING, "getifaddrs() failed. Error: %s[%d]", strerror(errno), errno);
         RETURN_FALSE;
     }
     array_init(return_value);
-    for (ifa = ipaddrs; ifa != NULL; ifa = ifa->ifa_next)
+    for (ifa = ipaddrs; ifa != NULL; ifa = ifa->ifa_next)//循环
     {
         if (ifa->ifa_addr == NULL || !(ifa->ifa_flags & IFF_UP))
         {
@@ -1578,7 +1707,7 @@ PHP_FUNCTION(swoole_get_local_ip)
             default:
                 continue;
         }
-        if (!inet_ntop(ifa->ifa_addr->sa_family, in_addr, ip, sizeof(ip)))
+        if (!inet_ntop(ifa->ifa_addr->sa_family, in_addr, ip, sizeof(ip)))//网络字节顺转为本地字节顺 http://man7.org/linux/man-pages/man3/inet_ntop.3.html
         {
             php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s: inet_ntop failed.", ifa->ifa_name);
         }
@@ -1595,6 +1724,7 @@ PHP_FUNCTION(swoole_get_local_ip)
     freeifaddrs(ipaddrs);
 }
 
+//取得本机MAC地址
 PHP_FUNCTION(swoole_get_local_mac)
 {
 #ifdef SIOCGIFHWADDR
@@ -1640,9 +1770,10 @@ PHP_FUNCTION(swoole_get_local_mac)
 #endif
 }
 
+//请求关闭时运行
 PHP_FUNCTION(swoole_call_user_shutdown_begin)
 {
-    SWOOLE_G(req_status) = PHP_SWOOLE_CALL_USER_SHUTDOWNFUNC_BEGIN;
+    SWOOLE_G(req_status) = PHP_SWOOLE_CALL_USER_SHUTDOWNFUNC_BEGIN; //运行status 更新
     RETURN_TRUE;
 }
 
