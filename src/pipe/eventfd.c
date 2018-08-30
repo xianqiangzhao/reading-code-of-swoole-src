@@ -29,6 +29,7 @@ typedef struct _swPipeEventfd
     int event_fd;
 } swPipeEventfd;
 
+
 int swPipeEventfd_create(swPipe *p, int blocking, int semaphore, int timeout)
 {
     int efd;

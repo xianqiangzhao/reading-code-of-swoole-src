@@ -16,6 +16,9 @@
  +----------------------------------------------------------------------+
  */
 
+//底层基于共享内存+Mutex互斥锁实现，可实现用户态的高性能内存队列。
+//初始化时需要把申请的内存大小想好，因为空间不足的话不会扩容。
+//channel 用链表实现是否更好了呢？？
 
 #include "php_swoole.h"
 #include "swoole_coroutine.h"
@@ -52,6 +55,7 @@ static const zend_function_entry swoole_channel_methods[] =
     PHP_FE_END
 };
 
+//初期化
 void swoole_channel_init(int module_number TSRMLS_DC)
 {
     SWOOLE_INIT_CLASS_ENTRY(swoole_channel_ce, "swoole_channel", "Swoole\\Channel", swoole_channel_methods);
@@ -59,6 +63,7 @@ void swoole_channel_init(int module_number TSRMLS_DC)
     SWOOLE_CLASS_ALIAS(swoole_channel, "Swoole\\Channel");
 }
 
+//实例化 传递参数 size 通道占用的内存的尺寸，单位为字节
 static PHP_METHOD(swoole_channel, __construct)
 {
     long size;
@@ -68,9 +73,9 @@ static PHP_METHOD(swoole_channel, __construct)
         RETURN_FALSE;
     }
 
-    if (size < SW_BUFFER_SIZE_STD)
+    if (size < SW_BUFFER_SIZE_STD)//size 不能小于8129
     {
-        size = SW_BUFFER_SIZE_STD;
+        size = SW_BUFFER_SIZE_STD;//8192
     }
 
     swChannel *chan = swChannel_new(size, SW_BUFFER_SIZE_STD, SW_CHAN_LOCK | SW_CHAN_SHM);
@@ -79,9 +84,10 @@ static PHP_METHOD(swoole_channel, __construct)
         zend_throw_exception(swoole_exception_class_entry_ptr, "failed to create channel.", SW_ERROR_MALLOC_FAIL TSRMLS_CC);
         RETURN_FALSE;
     }
-    swoole_set_object(getThis(), chan);
+    swoole_set_object(getThis(), chan);//保存chan 内存指针
 }
 
+//channel 释放
 static PHP_METHOD(swoole_channel, __destruct)
 {
     SW_PREVENT_USER_DESTRUCT;
@@ -89,6 +95,7 @@ static PHP_METHOD(swoole_channel, __destruct)
     swoole_set_object(getThis(), NULL);
 }
 
+//向channel 中push
 static PHP_METHOD(swoole_channel, push)
 {
     swChannel *chan = swoole_get_object(getThis());
@@ -99,14 +106,15 @@ static PHP_METHOD(swoole_channel, push)
         RETURN_FALSE;
     }
 
-    swEventData buf;
-    if (php_swoole_task_pack(&buf, zdata TSRMLS_CC) < 0)
+    swEventData buf;//channel 放入存放这个结构体，数据放在buf.data中
+    if (php_swoole_task_pack(&buf, zdata TSRMLS_CC) < 0) //存入的数据pack
     {
         RETURN_FALSE;
     }
-    SW_CHECK_RETURN(swChannel_push(chan, &buf, sizeof(buf.info) + buf.info.len));
+    SW_CHECK_RETURN(swChannel_push(chan, &buf, sizeof(buf.info) + buf.info.len));//把数据压入
 }
 
+//弹出数据
 static PHP_METHOD(swoole_channel, pop)
 {
     swChannel *chan = swoole_get_object(getThis());
@@ -118,7 +126,7 @@ static PHP_METHOD(swoole_channel, pop)
         RETURN_FALSE;
     }
 
-    zval *ret_data = php_swoole_task_unpack(&buf TSRMLS_CC);
+    zval *ret_data = php_swoole_task_unpack(&buf TSRMLS_CC);//unpack
     if (ret_data == NULL)
     {
         RETURN_FALSE;
@@ -150,6 +158,7 @@ static PHP_METHOD(swoole_channel, peek)
     efree(ret_data);
 }
 
+//数据统计
 static PHP_METHOD(swoole_channel, stats)
 {
     swChannel *chan = swoole_get_object(getThis());

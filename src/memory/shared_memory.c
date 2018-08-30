@@ -17,11 +17,12 @@
 #include "swoole.h"
 #include <sys/shm.h>
 
+//申请共享内存
 void* sw_shm_malloc(size_t size)
 {
     swShareMemory object;
     void *mem;
-    size += sizeof(swShareMemory);
+    size += sizeof(swShareMemory);//size = 申请的size + sizeof(swShareMemory)
     mem = swShareMemory_mmap_create(&object, size, NULL);
     if (mem == NULL)
     {
@@ -29,8 +30,8 @@ void* sw_shm_malloc(size_t size)
     }
     else
     {
-        memcpy(mem, &object, sizeof(swShareMemory));
-        return mem + sizeof(swShareMemory);
+        memcpy(mem, &object, sizeof(swShareMemory)); //把swShareMemory copy 到申请到内存的头
+        return mem + sizeof(swShareMemory); //返回可用的内存地址
     }
 }
 

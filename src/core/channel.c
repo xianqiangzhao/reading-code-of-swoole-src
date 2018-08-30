@@ -18,12 +18,14 @@
 
 #define SW_CHANNEL_MIN_MEM (1024*64)
 
+//channel 中存放的item
 typedef struct _swChannel_item
 {
     int length;
     char data[0];
 } swChannel_item;
 
+//申请channel 内存
 swChannel* swChannel_new(size_t size, int maxlen, int flags)
 {
     assert(size >= maxlen);
@@ -31,13 +33,13 @@ swChannel* swChannel_new(size_t size, int maxlen, int flags)
     void *mem;
 
     //use shared memory
-    if (flags & SW_CHAN_SHM)
+    if (flags & SW_CHAN_SHM) //用共享内存 可以多进程共享
     {
         mem = sw_shm_malloc(size + sizeof(swChannel));
     }
     else
     {
-        mem = sw_malloc(size + sizeof(swChannel));
+        mem = sw_malloc(size + sizeof(swChannel));//不使用共享内存
     }
 
     if (mem == NULL)
@@ -51,25 +53,25 @@ swChannel* swChannel_new(size_t size, int maxlen, int flags)
     bzero(object, sizeof(swChannel));
 
     //overflow space
-    object->size = size;
-    object->mem = mem;
-    object->maxlen = maxlen;
+    object->size = size;//8192
+    object->mem = mem;  //申请到的内存地址是头存放swShareMemory接着是swChannel，后面才是可用的内存，也就是会都申请出来两个他们两个的结构体的内存。
+    object->maxlen = maxlen;//申请到的内存size 
     object->flag = flags;
 
     //use lock
-    if (flags & SW_CHAN_LOCK)
+    if (flags & SW_CHAN_LOCK) //判断是否使用锁
     {
         //init lock
-        if (swMutex_create(&object->lock, 1) < 0)
+        if (swMutex_create(&object->lock, 1) < 0) //建立锁
         {
             swWarn("mutex init failed.");
             return NULL;
         }
     }
     //use notify
-    if (flags & SW_CHAN_NOTIFY)
+    if (flags & SW_CHAN_NOTIFY) //chanel 没有用到
     {
-        ret = swPipeNotify_auto(&object->notify_fd, 1, 1);
+        ret = swPipeNotify_auto(&object->notify_fd, 1, 1);//通過eventfd 的是否可读可写来实现进程间通信。
         if (ret < 0)
         {
             swWarn("notify_fd init failed.");
@@ -80,7 +82,7 @@ swChannel* swChannel_new(size_t size, int maxlen, int flags)
 }
 
 /**
- * push data(no lock)
+ * push data(no lock)  //数据放入channel
  */
 int swChannel_in(swChannel *object, void *in, int data_length)
 {
@@ -92,7 +94,7 @@ int swChannel_in(swChannel *object, void *in, int data_length)
     swChannel_item *item;
     int msize = sizeof(item->length) + data_length;
 
-    if (object->tail < object->head)
+    if (object->tail < object->head) //空间不足就报错？？？？
     {
         //no enough memory space
         if ((object->head - object->tail) < msize)
@@ -104,7 +106,7 @@ int swChannel_in(swChannel *object, void *in, int data_length)
     }
     else
     {
-        item = object->mem + object->tail;
+        item = object->mem + object->tail; //item 执行内存地址，第一次时object->tail = 0
         object->tail += msize;
         if (object->tail >= object->size)
         {
@@ -115,12 +117,12 @@ int swChannel_in(swChannel *object, void *in, int data_length)
     object->num++;
     object->bytes += data_length;
     item->length = data_length;
-    memcpy(item->data, in, data_length);
+    memcpy(item->data, in, data_length); //把in 的数据放到item->data 中
     return SW_OK;
 }
 
 /**
- * pop data(no lock)
+ * pop data(no lock) //数据弹出
  */
 int swChannel_out(swChannel *object, void *out, int buffer_length)
 {
@@ -166,7 +168,7 @@ int swChannel_peek(swChannel *object, void *out, int buffer_length)
 
 /**
  * wait notify
- */
+ */ //没用用到
 int swChannel_wait(swChannel *object)
 {
     assert(object->flag & SW_CHAN_NOTIFY);
@@ -176,7 +178,7 @@ int swChannel_wait(swChannel *object)
 
 /**
  * new data coming, notify to customer
- */
+ *///没用用到
 int swChannel_notify(swChannel *object)
 {
     assert(object->flag & SW_CHAN_NOTIFY);

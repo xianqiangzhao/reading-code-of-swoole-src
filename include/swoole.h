@@ -757,7 +757,7 @@ typedef struct _swEvent
 typedef struct _swEventData
 {
     swDataHead info;
-    char data[SW_BUFFER_SIZE];
+    char data[SW_BUFFER_SIZE];//65535
 } swEventData;
 
 typedef struct _swDgramPacket
