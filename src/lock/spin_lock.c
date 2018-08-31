@@ -17,7 +17,7 @@
 #include "swoole.h"
 
 #ifdef HAVE_SPINLOCK
-
+//自旋锁
 static int swSpinLock_lock(swLock *lock);
 static int swSpinLock_unlock(swLock *lock);
 static int swSpinLock_trylock(swLock *lock);

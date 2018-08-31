@@ -23,11 +23,12 @@ static int swFileLock_trylock_rw(swLock *lock);
 static int swFileLock_trylock_rd(swLock *lock);
 static int swFileLock_free(swLock *lock);
 
+//文件锁
 int swFileLock_create(swLock *lock, int fd)
 {
     bzero(lock, sizeof(swLock));
     lock->type = SW_FILELOCK;
-    lock->object.filelock.fd = fd;
+    lock->object.filelock.fd = fd;//打开的文件描述符
     lock->lock_rd = swFileLock_lock_rd;
     lock->lock = swFileLock_lock_rw;
     lock->trylock_rd = swFileLock_trylock_rd;
@@ -39,13 +40,13 @@ int swFileLock_create(swLock *lock, int fd)
 
 static int swFileLock_lock_rd(swLock *lock)
 {
-    lock->object.filelock.lock_t.l_type = F_RDLCK;
+    lock->object.filelock.lock_t.l_type = F_RDLCK;//读
     return fcntl(lock->object.filelock.fd, F_SETLKW, &lock->object.filelock);
 }
 
 static int swFileLock_lock_rw(swLock *lock)
 {
-    lock->object.filelock.lock_t.l_type = F_WRLCK;
+    lock->object.filelock.lock_t.l_type = F_WRLCK; //写
     return fcntl(lock->object.filelock.fd, F_SETLKW, &lock->object.filelock);
 }
 
@@ -57,7 +58,7 @@ static int swFileLock_unlock(swLock *lock)
 
 static int swFileLock_trylock_rw(swLock *lock)
 {
-    lock->object.filelock.lock_t.l_type = F_WRLCK;
+    lock->object.filelock.lock_t.l_type = F_WRLCK;//读写
     return fcntl(lock->object.filelock.fd, F_SETLK, &lock->object.filelock);
 }
 

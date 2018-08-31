@@ -72,7 +72,7 @@ int swTaskWorker_onTask(swProcessPool *pool, swEventData *task)
 
     return ret;
 }
-
+//大于8192
 int swTaskWorker_large_pack(swEventData *task, void *data, int data_len)
 {
     swPackage_task pkg;
