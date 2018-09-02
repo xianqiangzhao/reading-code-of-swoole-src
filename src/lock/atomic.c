@@ -16,6 +16,7 @@
 
 #include "swoole.h"
 
+//原子锁
 static int swAtomicLock_lock(swLock *lock);
 static int swAtomicLock_unlock(swLock *lock);
 static int swAtomicLock_trylock(swLock *lock);

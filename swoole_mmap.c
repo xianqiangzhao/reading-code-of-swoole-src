@@ -14,6 +14,8 @@
   +----------------------------------------------------------------------+
 */
 
+//内存映射 mmap可以减少读写磁盘操作的IO消耗、减少内存拷贝。在实现高性能的磁盘操作程序中，可以使用mmap来提升性能。
+
 #include "php_swoole.h"
 
 typedef struct
@@ -47,33 +49,36 @@ static const zend_function_entry swoole_mmap_methods[] =
     PHP_FE_END
 };
 
+//定义 stream 结构体回调函数
 php_stream_ops mmap_ops =
 {
-    mmap_stream_write,
-    mmap_stream_read,
-    mmap_stream_close,
-    mmap_stream_flush,
-    "swoole_mmap",
-    mmap_stream_seek,
+    mmap_stream_write, //写
+    mmap_stream_read,  //读
+    mmap_stream_close, //关闭
+    mmap_stream_flush, //刷新
+    "swoole_mmap",//名称
+    mmap_stream_seek,//find
     NULL,
     NULL,
     NULL
 };
 
+//写
 static size_t mmap_stream_write(php_stream * stream, const char *buffer, size_t length TSRMLS_DC)
 {
-    swMmapFile *res = stream->abstract;
+    swMmapFile *res = stream->abstract;//取得内存映射对应的结构体，在open 方法时定义的。
 
-    int n_write = MIN(res->memory + res->size - res->ptr, length);
+    int n_write = MIN(res->memory + res->size - res->ptr, length);//写入的最小size ，防止写入过大
     if (n_write == 0)
     {
         return 0;
     }
-    memcpy(res->ptr, buffer, n_write);
-    res->ptr += n_write;
-    return n_write;
+    memcpy(res->ptr, buffer, n_write); //写入到res->ptr ，buffer 里面的 n_write 字节。
+    res->ptr += n_write;//写入地址增大
+    return n_write;//返回写入大小
 }
 
+//读
 static size_t mmap_stream_read(php_stream *stream, char *buffer, size_t length TSRMLS_DC)
 {
     swMmapFile *res = stream->abstract;
@@ -83,11 +88,12 @@ static size_t mmap_stream_read(php_stream *stream, char *buffer, size_t length T
     {
         return 0;
     }
-    memcpy(buffer, res->ptr, n_read);
+    memcpy(buffer, res->ptr, n_read); //读到buffer 中
     res->ptr += n_read;
     return n_read;
 }
 
+//刷新同步到文件中
 static int mmap_stream_flush(php_stream *stream TSRMLS_DC)
 {
     swMmapFile *res = stream->abstract;
@@ -133,23 +139,27 @@ static int mmap_stream_seek(php_stream *stream, off_t offset, int whence, off_t 
     }
 }
 
+//关闭
 static int mmap_stream_close(php_stream *stream, int close_handle TSRMLS_DC)
 {
     swMmapFile *res = stream->abstract;
     if (close_handle)
     {
-        munmap(res->memory, res->size);
+        munmap(res->memory, res->size);//内存映射解除
     }
     efree(res);
     return 0;
 }
 
+//初始化
 void swoole_mmap_init(int module_number TSRMLS_DC)
 {
     SWOOLE_INIT_CLASS_ENTRY(swoole_mmap_ce, "swoole_mmap", "Swoole\\Mmap", swoole_mmap_methods);
     swoole_mmap_class_entry_ptr = zend_register_internal_class(&swoole_mmap_ce TSRMLS_CC);
     SWOOLE_CLASS_ALIAS(swoole_mmap, "Swoole\\Mmap");
 }
+
+//open 方法 参数文件名
 
 static PHP_METHOD(swoole_mmap, open)
 {
@@ -200,22 +210,29 @@ static PHP_METHOD(swoole_mmap, open)
             size = _stat.st_size;
         }
     }
-
+    //把传进来的文件名打开后，调用内存映射函数 mmap
+    //size 打开的size 
+    // PROT_WRITE | PROT_READ 以可读可写方式打开
+    // MAP_SHARED Share this mapping
+    //fd 打开的文件描述符
+    //offset  偏移量
     void *addr = mmap(NULL, size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, offset);
     if (addr == NULL)
     {
         swoole_php_sys_error(E_WARNING, "mmap(%ld) failed.", size);
         RETURN_FALSE;
     }
-
+    //把打开的信息情报放到内存映射结构体中
     swMmapFile *res = emalloc(sizeof(swMmapFile));
-    res->filename = filename;
-    res->size = size;
-    res->offset = offset;
-    res->memory = addr;
-    res->ptr = addr;
+    res->filename = filename;//文件名
+    res->size = size;  //size 
+    res->offset = offset;//偏移量
+    res->memory = addr;//内存映射地址 对应打开的文件
+    res->ptr = addr;//同上
 
-    close(fd);
+    close(fd);//关闭描述符
+
+    //以 php_stream 方式读，写，刷新操作这个内存映射空间地址。
     php_stream *stream = php_stream_alloc(&mmap_ops, res, NULL, "r+");
     php_stream_to_zval(stream, return_value);
 }
