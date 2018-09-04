@@ -262,6 +262,10 @@ void swoole_table_init(int module_number TSRMLS_DC)
     swoole_table_class_entry_ptr->serialize = zend_class_serialize_deny;
     swoole_table_class_entry_ptr->unserialize = zend_class_unserialize_deny;
     SWOOLE_CLASS_ALIAS(swoole_table, "Swoole\\Table");
+    //swoole_table 继承于arrayaccess 和zend_ce_iterator 也就是实现了数组访问和迭代器
+    //数组访问就是对象具有数组访问的功能
+    //迭代器就是可以自身进行foreach
+    //数组访问参见 http://php.net/manual/zh/class.arrayaccess.php
     zend_class_implements(swoole_table_class_entry_ptr TSRMLS_CC, 2, zend_ce_iterator, zend_ce_arrayaccess);
 #ifdef SW_HAVE_COUNTABLE
     zend_class_implements(swoole_table_class_entry_ptr TSRMLS_CC, 1, zend_ce_countable);
@@ -361,6 +365,7 @@ static PHP_METHOD(swoole_table, create)
     RETURN_TRUE;
 }
 
+//table 销毁
 static PHP_METHOD(swoole_table, destroy)
 {
     swTable *table = swoole_get_object(getThis());
@@ -374,6 +379,9 @@ static PHP_METHOD(swoole_table, destroy)
     RETURN_TRUE;
 }
 
+//给行set 值
+//key 是string
+//array 是数据
 static PHP_METHOD(swoole_table, set)
 {
     zval *array;
@@ -406,21 +414,21 @@ static PHP_METHOD(swoole_table, set)
     char *k;
     uint32_t klen;
     int ktype;
-    HashTable *_ht = Z_ARRVAL_P(array);
+    HashTable *_ht = Z_ARRVAL_P(array);//取得array(zval) 中的arr
 
-    SW_HASHTABLE_FOREACH_START2(_ht, k, klen, ktype, v)
+    SW_HASHTABLE_FOREACH_START2(_ht, k, klen, ktype, v) //循环array
     {
-        col = swTableColumn_get(table, k, klen);
+        col = swTableColumn_get(table, k, klen); //取得相应的column
         if (k == NULL || col == NULL)
         {
             continue;
         }
-        else if (col->type == SW_TABLE_STRING)
+        else if (col->type == SW_TABLE_STRING) //string类型
         {
             convert_to_string(v);
-            swTableRow_set_value(row, col, Z_STRVAL_P(v), Z_STRLEN_P(v));
+            swTableRow_set_value(row, col, Z_STRVAL_P(v), Z_STRLEN_P(v));//set value to column
         }
-        else if (col->type == SW_TABLE_FLOAT)
+        else if (col->type == SW_TABLE_FLOAT)//float
         {
             convert_to_double(v);
             swTableRow_set_value(row, col, &Z_DVAL_P(v), 0);
@@ -428,7 +436,7 @@ static PHP_METHOD(swoole_table, set)
         else
         {
             convert_to_long(v);
-            swTableRow_set_value(row, col, &Z_LVAL_P(v), 0);
+            swTableRow_set_value(row, col, &Z_LVAL_P(v), 0);//long
         }
     }
     (void) ktype;
