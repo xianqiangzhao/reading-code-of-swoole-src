@@ -13,6 +13,7 @@
   | Author: Tianfeng Han  <mikan.tenny@gmail.com>                        |
   +----------------------------------------------------------------------+
 */
+//swoole_table一个基于共享内存和锁实现的超高性能，并发数据结构。用于解决多进程/多线程数据共享和同步加锁问题。
 
 #include "php_swoole.h"
 
@@ -24,6 +25,7 @@ static zend_class_entry *swoole_table_class_entry_ptr;
 static zend_class_entry swoole_table_row_ce;
 static zend_class_entry *swoole_table_row_class_entry_ptr;
 
+//参数定义
 ZEND_BEGIN_ARG_INFO_EX(arginfo_swoole_table_void, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
@@ -85,6 +87,7 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_swoole_table_decr, 0, 0, 2)
     ZEND_ARG_INFO(0, decrby)
 ZEND_END_ARG_INFO()
 
+//函数定义
 static PHP_METHOD(swoole_table, __construct);
 static PHP_METHOD(swoole_table, column);
 static PHP_METHOD(swoole_table, create);
@@ -114,6 +117,7 @@ static PHP_METHOD(swoole_table_row, offsetSet);
 static PHP_METHOD(swoole_table_row, offsetUnset);
 static PHP_METHOD(swoole_table_row, __destruct);
 
+//内置方法
 static const zend_function_entry swoole_table_methods[] =
 {
     PHP_ME(swoole_table, __construct, arginfo_swoole_table_construct, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
@@ -141,6 +145,7 @@ static const zend_function_entry swoole_table_methods[] =
     PHP_FE_END
 };
 
+//swoole_table_row的内置方法
 static const zend_function_entry swoole_table_row_methods[] =
 {
     PHP_ME(swoole_table_row, offsetExists,     arginfo_swoole_table_offsetExists, ZEND_ACC_PUBLIC)
@@ -249,6 +254,7 @@ static inline void php_swoole_table_get_field_value(swTable *table, swTableRow *
     }
 }
 
+//初始化 建立 swoole_table、swoole_table_row对象类
 void swoole_table_init(int module_number TSRMLS_DC)
 {
     SWOOLE_INIT_CLASS_ENTRY(swoole_table_ce, "swoole_table", "Swoole\\Table", swoole_table_methods);
@@ -261,6 +267,7 @@ void swoole_table_init(int module_number TSRMLS_DC)
     zend_class_implements(swoole_table_class_entry_ptr TSRMLS_CC, 1, zend_ce_countable);
 #endif
 
+    //类型定义，只支持这三种类型 int  string  float
     zend_declare_class_constant_long(swoole_table_class_entry_ptr, SW_STRL("TYPE_INT")-1, SW_TABLE_INT TSRMLS_CC);
     zend_declare_class_constant_long(swoole_table_class_entry_ptr, SW_STRL("TYPE_STRING")-1, SW_TABLE_STRING TSRMLS_CC);
     zend_declare_class_constant_long(swoole_table_class_entry_ptr, SW_STRL("TYPE_FLOAT")-1, SW_TABLE_FLOAT TSRMLS_CC);
@@ -274,11 +281,15 @@ void swoole_table_init(int module_number TSRMLS_DC)
     zend_declare_property_null(swoole_table_row_class_entry_ptr, ZEND_STRL("value"), ZEND_ACC_PUBLIC TSRMLS_CC);
 }
 
+//释放column
 void swoole_table_column_free(swTableColumn *col)
 {
     swString_free(col->name);
 }
 
+//实例化 swoole_table时执行
+//参数 table_size 
+//参数 conflict_proportion 空间保留使用率
 PHP_METHOD(swoole_table, __construct)
 {
     long table_size;
@@ -288,16 +299,18 @@ PHP_METHOD(swoole_table, __construct)
     {
         RETURN_FALSE;
     }
-
+    //建立table 
     swTable *table = swTable_new(table_size, conflict_proportion);
     if (table == NULL)
     {
         zend_throw_exception(swoole_exception_class_entry_ptr, "global memory allocation failure.", SW_ERROR_MALLOC_FAIL TSRMLS_CC);
         RETURN_FALSE;
     }
-    swoole_set_object(getThis(), table);
+    swoole_set_object(getThis(), table);//把table 对象保存
 }
 
+//table 的 column 增加
+//参数 名称，类型，size
 PHP_METHOD(swoole_table, column)
 {
     char *name;
@@ -319,16 +332,17 @@ PHP_METHOD(swoole_table, column)
     {
         size = 4;
     }
-    swTable *table = swoole_get_object(getThis());
+    swTable *table = swoole_get_object(getThis());//取得table 
     if (table->memory)
     {
         swoole_php_fatal_error(E_WARNING, "can't add column after the creation of swoole table.");
         RETURN_FALSE;
     }
-    swTableColumn_add(table, name, len, type, size);
+    swTableColumn_add(table, name, len, type, size);//增加column
     RETURN_TRUE;
 }
 
+//table create
 static PHP_METHOD(swoole_table, create)
 {
     swTable *table = swoole_get_object(getThis());
@@ -337,7 +351,7 @@ static PHP_METHOD(swoole_table, create)
         swoole_php_fatal_error(E_WARNING, "the swoole table has been created already.");
         RETURN_FALSE;
     }
-    if (swTable_create(table) < 0)
+    if (swTable_create(table) < 0)//create
     {
         swoole_php_fatal_error(E_ERROR, "unable to allocate memory.");
         RETURN_FALSE;

@@ -43,6 +43,7 @@ static sw_inline void swHashMap_node_free(swHashMap *hmap, swHashMap_node *node)
     sw_free(node);
 }
 
+//node_add
 static sw_inline int swHashMap_node_add(swHashMap_node *root, swHashMap_node *add)
 {
     unsigned _ha_bkt;
@@ -90,9 +91,11 @@ static sw_inline swHashMap_node* swHashMap_node_each(swHashMap* hmap)
     }
 }
 
+//hashmap 创建
+//向系统申请内存
 swHashMap* swHashMap_new(uint32_t bucket_num, swHashMap_dtor dtor)
 {
-    swHashMap *hmap = sw_malloc(sizeof(swHashMap));
+    swHashMap *hmap = sw_malloc(sizeof(swHashMap)); //head
     if (!hmap)
     {
         swWarn("malloc[1] failed.");
@@ -107,7 +110,7 @@ swHashMap* swHashMap_new(uint32_t bucket_num, swHashMap_dtor dtor)
     }
 
     bzero(hmap, sizeof(swHashMap));
-    hmap->root = root;
+    hmap->root = root;//root 节点
 
     bzero(root, sizeof(swHashMap_node));
 
@@ -124,21 +127,21 @@ swHashMap* swHashMap_new(uint32_t bucket_num, swHashMap_dtor dtor)
     root->hh.tbl->num_buckets = SW_HASHMAP_INIT_BUCKET_N;
     root->hh.tbl->log2_num_buckets = HASH_INITIAL_NUM_BUCKETS_LOG2;
     root->hh.tbl->hho = (char*) (&root->hh) - (char*) root;
-    root->hh.tbl->buckets = (UT_hash_bucket*) sw_malloc(SW_HASHMAP_INIT_BUCKET_N * sizeof(struct UT_hash_bucket));
+    root->hh.tbl->buckets = (UT_hash_bucket*) sw_malloc(SW_HASHMAP_INIT_BUCKET_N * sizeof(struct UT_hash_bucket));//hash map 的数据元素申请 初期32个
     if (!root->hh.tbl->buckets)
     {
         swWarn("malloc for buckets failed.");
         sw_free(hmap);
         return NULL;
     }
-    memset(root->hh.tbl->buckets, 0, SW_HASHMAP_INIT_BUCKET_N * sizeof(struct UT_hash_bucket));
+    memset(root->hh.tbl->buckets, 0, SW_HASHMAP_INIT_BUCKET_N * sizeof(struct UT_hash_bucket));//初期设定为0
     root->hh.tbl->signature = HASH_SIGNATURE;
 
-    hmap->dtor = dtor;
+    hmap->dtor = dtor;//释放回调函数
 
-    return hmap;
+    return hmap;//返回hash head
 }
-
+//column add
 int swHashMap_add(swHashMap* hmap, char *key, uint16_t key_len, void *data)
 {
     swHashMap_node *node = (swHashMap_node*) sw_malloc(sizeof(swHashMap_node));

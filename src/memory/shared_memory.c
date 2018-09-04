@@ -35,6 +35,7 @@ void* sw_shm_malloc(size_t size)
     }
 }
 
+//申请共享内存 size = num * _size
 void* sw_shm_calloc(size_t num, size_t _size)
 {
     swShareMemory object;
@@ -50,39 +51,45 @@ void* sw_shm_calloc(size_t num, size_t _size)
     {
         memcpy(mem, &object, sizeof(swShareMemory));
         ret_mem = mem + sizeof(swShareMemory);
-        bzero(ret_mem, size - sizeof(swShareMemory));
+        bzero(ret_mem, size - sizeof(swShareMemory)); //除去头以外的内存初始化为\0
         return ret_mem;
     }
 }
 
+//在内存区域设置保护
 int sw_shm_protect(void *addr, int flags)
 {
-    swShareMemory *object = (swShareMemory *) (addr - sizeof(swShareMemory));
-    return mprotect(object, object->size, flags);
+    swShareMemory *object = (swShareMemory *) (addr - sizeof(swShareMemory));//把内存地址头的swShareMemory减去，就得到swShareMemory结果体，里面保存这块内存的信息。
+    return mprotect(object, object->size, flags);//object->size 就是这块内存的大小。
 }
 
+//释放内存
 void sw_shm_free(void *ptr)
 {
     swShareMemory *object = ptr - sizeof(swShareMemory);
     swShareMemory_mmap_free(object);
 }
 
+//重新申请内存
 void* sw_shm_realloc(void *ptr, size_t new_size)
 {
-    swShareMemory *object = ptr - sizeof(swShareMemory);
+    swShareMemory *object = ptr - sizeof(swShareMemory);//取得原内存swShareMemory对象，目的是取得原内存的size
     void *new_ptr;
-    new_ptr = sw_shm_malloc(new_size);
+    new_ptr = sw_shm_malloc(new_size);//新内存地址申请
     if (new_ptr == NULL)
     {
         return NULL;
     }
     else
     {
-        memcpy(new_ptr, ptr, object->size);
-        sw_shm_free(ptr);
-        return new_ptr;
+        memcpy(new_ptr, ptr, object->size);//把原内存上的数据 copy 到新内存上
+        sw_shm_free(ptr);//释放老内存
+        return new_ptr;//返回新内存地址
     }
 }
+
+//内存映射的内存申请
+//主要是用到了mmap http://man7.org/linux/man-pages/man2/mmap.2.html
 
 void *swShareMemory_mmap_create(swShareMemory *object, size_t size, char *mapfile)
 {
@@ -92,7 +99,7 @@ void *swShareMemory_mmap_create(swShareMemory *object, size_t size, char *mapfil
     bzero(object, sizeof(swShareMemory));
 
 #ifdef MAP_ANONYMOUS
-    flag |= MAP_ANONYMOUS;
+    flag |= MAP_ANONYMOUS;//这个逻辑会进入，这个参数的意思是不映射任何文件，初始空间为0，fd = -1
 #else
     if (mapfile == NULL)
     {
@@ -106,16 +113,16 @@ void *swShareMemory_mmap_create(swShareMemory *object, size_t size, char *mapfil
     object->tmpfd = tmpfd;
 #endif
 
-#if defined(SW_USE_HUGEPAGE) && defined(MAP_HUGETLB)
+#if defined(SW_USE_HUGEPAGE) && defined(MAP_HUGETLB) //大页面内存映射  swoole configure 时加入  --enable-hugepage  参数的话就开启了支持HUGEPAGE
     if (size > 2 * 1024 * 1024)
     {
         flag |= MAP_HUGETLB;
     }
 #endif
 
-    mem = mmap(NULL, size, PROT_READ | PROT_WRITE, flag, tmpfd, 0);
+    mem = mmap(NULL, size, PROT_READ | PROT_WRITE, flag, tmpfd, 0);//调用mmap系统函数映射size 大小可读可写，tmpfd= -1 ,flag = MAP_SHARED ,offset = 0的内存空间。
 #ifdef MAP_FAILED
-    if (mem == MAP_FAILED)
+    if (mem == MAP_FAILED) //返回时 = -1 的话映射失败
 #else
     if (!mem)
 #endif
@@ -124,18 +131,20 @@ void *swShareMemory_mmap_create(swShareMemory *object, size_t size, char *mapfil
         return NULL;
     }
     else
-    {
+    {//成功的话，把申请信息给到 object(swShareMemory) 中
         object->size = size;
         object->mem = mem;
         return mem;
     }
 }
 
+//内存释放
 int swShareMemory_mmap_free(swShareMemory *object)
 {
     return munmap(object->mem, object->size);
 }
 
+//没有地方用到，shmget也是进程间共享内存的一种方式
 void *swShareMemory_sysv_create(swShareMemory *object, size_t size, int key)
 {
     int shmid;

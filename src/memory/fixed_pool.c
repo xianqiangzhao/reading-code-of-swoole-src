@@ -61,6 +61,9 @@ swMemoryPool* swFixedPool_new(uint32_t slice_num, uint32_t slice_size, uint8_t s
 /**
  * create new FixedPool, Using the given memory
  */
+//slice_size 是每一行内存使用大小
+//memory 是可以使用内存开始地址
+//size 是总可以使用的内存大小
 swMemoryPool* swFixedPool_new2(uint32_t slice_size, void *memory, size_t size)
 {
     swFixedPool *object = memory;

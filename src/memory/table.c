@@ -14,6 +14,8 @@
   +----------------------------------------------------------------------+
 */
 
+//swoole_table 底层实现类
+
 #include "swoole.h"
 #include "table.h"
 
@@ -34,6 +36,7 @@ static void swTableColumn_free(swTableColumn *col)
     sw_free(col);
 }
 
+//创建 table
 swTable* swTable_new(uint32_t rows_size, float conflict_proportion)
 {
     if (rows_size >= 0x80000000)
@@ -58,51 +61,58 @@ swTable* swTable_new(uint32_t rows_size, float conflict_proportion)
     {
         conflict_proportion = SW_TABLE_CONFLICT_PROPORTION;
     }
-
+    //共享内存申请，从全局中的申请SwooleG
     swTable *table = SwooleG.memory_pool->alloc(SwooleG.memory_pool, sizeof(swTable));
     if (table == NULL)
     {
         return NULL;
     }
+    //创建锁
     if (swMutex_create(&table->lock, 1) < 0)
     {
         swWarn("mutex create failed.");
         return NULL;
     }
+    //用malloc 申请iterator
     table->iterator = sw_malloc(sizeof(swTable_iterator));
     if (!table->iterator)
     {
         swWarn("malloc failed.");
         return NULL;
     }
+    //swHashMap 类型的column 
+    //SW_HASHMAP_INIT_BUCKET_N = 32
+    //swTableColumn_free 回调释放函数
     table->columns = swHashMap_new(SW_HASHMAP_INIT_BUCKET_N, (swHashMap_dtor)swTableColumn_free);
     if (!table->columns)
     {
         return NULL;
     }
 
-    table->size = rows_size;
+    table->size = rows_size;//table 的size
     table->mask = rows_size - 1;
     table->conflict_proportion = conflict_proportion;
 
     bzero(table->iterator, sizeof(swTable_iterator));
-    table->memory = NULL;
+    table->memory = NULL;//指向内存为NULL
     return table;
 }
 
+//column add
 int swTableColumn_add(swTable *table, char *name, int len, int type, int size)
 {
-    swTableColumn *col = sw_malloc(sizeof(swTableColumn));
+    swTableColumn *col = sw_malloc(sizeof(swTableColumn));//申请一个column 
     if (!col)
     {
         return SW_ERR;
     }
-    col->name = swString_dup(name, len);
+    col->name = swString_dup(name, len);//column  name 设定
     if (!col->name)
     {
         sw_free(col);
         return SW_ERR;
     }
+    //类型设定
     switch(type)
     {
     case SW_TABLE_INT:
@@ -141,12 +151,15 @@ int swTableColumn_add(swTable *table, char *name, int len, int type, int size)
         swTableColumn_free(col);
         return SW_ERR;
     }
+    //table 设定
     col->index = table->item_size;
     table->item_size += col->size;
-    table->column_num ++;
+    table->column_num ++;//column_num 增加
     return swHashMap_add(table->columns, name, len, col);
 }
 
+//取得table 应有的size
+//总之就是 行 size * 列size + 各种结果体size
 size_t swTable_get_memory_size(swTable *table)
 {
     /**
@@ -177,19 +190,20 @@ size_t swTable_get_memory_size(swTable *table)
     return memory_size;
 }
 
+//table create
 int swTable_create(swTable *table)
 {
-    size_t memory_size = swTable_get_memory_size(table);
-    size_t row_memory_size = sizeof(swTableRow) + table->item_size;
+    size_t memory_size = swTable_get_memory_size(table);//取得初始化时设定的table size(行数)，所有的数据在此memory_size上分配使用
+    size_t row_memory_size = sizeof(swTableRow) + table->item_size;//每一行的所有item 的size合
 
-    void *memory = sw_shm_malloc(memory_size);
+    void *memory = sw_shm_malloc(memory_size);//向共享内存申请内存
     if (memory == NULL)
     {
         return SW_ERR;
     }
 
     table->memory_size = memory_size;
-    table->memory = memory;
+    table->memory = memory;//申请到的内存指针
 
     table->rows = memory;
     memory += table->size * sizeof(swTableRow *);
@@ -204,22 +218,23 @@ int swTable_create(swTable *table)
 #endif
 
     int i;
-    for (i = 0; i < table->size; i++)
+    for (i = 0; i < table->size; i++) //table 行循环
     {
-        table->rows[i] = memory + (row_memory_size * i);
-        memset(table->rows[i], 0, sizeof(swTableRow));
+        table->rows[i] = memory + (row_memory_size * i);//每一行的swTableRow空间分配
+        memset(table->rows[i], 0, sizeof(swTableRow));//初始化0
 #if SW_TABLE_USE_SPINLOCK == 0
         pthread_mutex_init(&table->rows[i]->lock, &attr);
 #endif
     }
 
-    memory += row_memory_size * table->size;
-    memory_size -= row_memory_size * table->size;
-    table->pool = swFixedPool_new2(row_memory_size, memory, memory_size);
+    memory += row_memory_size * table->size;//memory 是真正可以使用的数据内存开始地址
+    memory_size -= row_memory_size * table->size;//可以使用的内存size
+    table->pool = swFixedPool_new2(row_memory_size, memory, memory_size);//建立一个
 
     return SW_OK;
 }
 
+//释放table
 void swTable_free(swTable *table)
 {
 #ifdef SW_TABLE_DEBUG
@@ -227,11 +242,11 @@ void swTable_free(swTable *table)
             conflict_count, conflict_max_level, insert_count);
 #endif
 
-    swHashMap_free(table->columns);
+    swHashMap_free(table->columns);//column 释放
     sw_free(table->iterator);
     if (table->memory)
     {
-        sw_shm_free(table->memory);
+        sw_shm_free(table->memory);//共享内存释放
     }
 }
 
