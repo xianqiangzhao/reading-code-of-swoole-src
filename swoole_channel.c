@@ -19,7 +19,7 @@
 //底层基于共享内存+Mutex互斥锁实现，可实现用户态的高性能内存队列。
 //初始化时需要把申请的内存大小想好，因为空间不足的话不会扩容。
 //channel 用链表实现是否更好了呢？？
-
+//先进先出队列
 #include "php_swoole.h"
 #include "swoole_coroutine.h"
 

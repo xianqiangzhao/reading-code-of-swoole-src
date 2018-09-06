@@ -209,7 +209,7 @@ int php_swoole_task_pack(swEventData *task, zval *data TSRMLS_DC)
 
     if (task_data_len >= SW_IPC_MAX_SIZE - sizeof(task->info))
     {
-        if (swTaskWorker_large_pack(task, task_data_str, task_data_len) < 0) //数据量大的话就写入临时文件
+        if (swTaskWorker_large_pack(task, task_data_str, task_data_len) < 0) //数据量超過8k大的话就写入临时文件
         {
             swoole_php_fatal_error(E_WARNING, "large task pack failed.");
             task->info.fd = SW_ERR;

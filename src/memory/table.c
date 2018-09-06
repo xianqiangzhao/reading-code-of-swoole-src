@@ -316,6 +316,7 @@ void swTable_iterator_forward(swTable *table)
     table->iterator->row = NULL;
 }
 
+//取得行的数据
 swTableRow* swTableRow_get(swTable *table, char *key, int keylen, swTableRow** rowlock)
 {
     if (keylen > SW_TABLE_KEY_SIZE)
@@ -323,7 +324,7 @@ swTableRow* swTableRow_get(swTable *table, char *key, int keylen, swTableRow** r
         keylen = SW_TABLE_KEY_SIZE;
     }
 
-    swTableRow *row = swTable_hash(table, key, keylen);
+    swTableRow *row = swTable_hash(table, key, keylen);//取得行数据头 链表结构
     *rowlock = row;
     swTableRow_lock(row);
 

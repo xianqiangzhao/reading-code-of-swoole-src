@@ -156,6 +156,7 @@ static const zend_function_entry swoole_table_row_methods[] =
     PHP_FE_END
 };
 
+//row 转为array
 static inline void php_swoole_table_row2array(swTable *table, swTableRow *row, zval *return_value)
 {
     array_init(return_value);
@@ -207,7 +208,7 @@ static inline void php_swoole_table_row2array(swTable *table, swTableRow *row, z
         }
     }
 }
-
+//取得一行中某一列的数据
 static inline void php_swoole_table_get_field_value(swTable *table, swTableRow *row, zval *return_value, char *field, uint16_t field_len)
 {
     swTable_string_length_t vlen = 0;
@@ -445,11 +446,17 @@ static PHP_METHOD(swoole_table, set)
     RETURN_TRUE;
 }
 
+//数组访问方法 
+//例如下面的设定方式,就会调用改函数
+//$table["apple"] = ["id" => 100, "name" => "zhao"]
 static PHP_METHOD(swoole_table, offsetSet)
 {
+    //下面的宏展开是 zim_swoole_table(execute_data, return_value)
     ZEND_MN(swoole_table_set)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+
 }
 
+//原子自增操作
 static PHP_METHOD(swoole_table, incr)
 {
     char *key;
@@ -528,6 +535,7 @@ static PHP_METHOD(swoole_table, incr)
     swTableRow_unlock(_rowlock);
 }
 
+//原子自减
 static PHP_METHOD(swoole_table, decr)
 {
     char *key;
@@ -606,6 +614,7 @@ static PHP_METHOD(swoole_table, decr)
     swTableRow_unlock(_rowlock);
 }
 
+//获取一行数据
 static PHP_METHOD(swoole_table, get)
 {
     char *key;
@@ -643,6 +652,7 @@ static PHP_METHOD(swoole_table, get)
     swTableRow_unlock(_rowlock);
 }
 
+//数组访问取得数据
 static PHP_METHOD(swoole_table, offsetGet)
 {
     char *key;
@@ -667,17 +677,17 @@ static PHP_METHOD(swoole_table, offsetGet)
     zval *value;
     SW_MAKE_STD_ZVAL(value);
 
-    swTableRow *row = swTableRow_get(table, key, keylen, &_rowlock);
+    swTableRow *row = swTableRow_get(table, key, keylen, &_rowlock);//取得行数据
     if (!row)
     {
         array_init(value);
     }
     else
     {
-        php_swoole_table_row2array(table, row, value);
+        php_swoole_table_row2array(table, row, value);//行数据放到value中
     }
     swTableRow_unlock(_rowlock);
-
+    //返回swoole_table_row_class 类型，并设定相应的值
     object_init_ex(return_value, swoole_table_row_class_entry_ptr);
     zend_update_property(swoole_table_row_class_entry_ptr, return_value, ZEND_STRL("value"), value TSRMLS_CC);
     zend_update_property_stringl(swoole_table_row_class_entry_ptr, return_value, ZEND_STRL("key"), key, keylen TSRMLS_CC);
@@ -685,6 +695,7 @@ static PHP_METHOD(swoole_table, offsetGet)
     swoole_set_object(return_value, table);
 }
 
+//检查table中是否存在某一个key
 static PHP_METHOD(swoole_table, exist)
 {
     char *key;
@@ -714,12 +725,12 @@ static PHP_METHOD(swoole_table, exist)
         RETURN_TRUE;
     }
 }
-
+//isset swoole_table 对象时调用
 static PHP_METHOD(swoole_table, offsetExists)
 {
     ZEND_MN(swoole_table_exist)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 }
-
+//删除数据
 static PHP_METHOD(swoole_table, del)
 {
     char *key;
@@ -738,12 +749,12 @@ static PHP_METHOD(swoole_table, del)
     }
     SW_CHECK_RETURN(swTableRow_del(table, key, keylen));
 }
-
+//unset(swoole_table['key'])
 static PHP_METHOD(swoole_table, offsetUnset)
 {
     ZEND_MN(swoole_table_del)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 }
-
+//
 static PHP_METHOD(swoole_table, count)
 {
     #define COUNT_NORMAL            0

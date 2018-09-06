@@ -53,9 +53,9 @@ swChannel* swChannel_new(size_t size, int maxlen, int flags)
     bzero(object, sizeof(swChannel));
 
     //overflow space
-    object->size = size;//8192
+    object->size = size;//申请到的内存size 
     object->mem = mem;  //申请到的内存地址是头存放swShareMemory接着是swChannel，后面才是可用的内存，也就是会都申请出来两个他们两个的结构体的内存。
-    object->maxlen = maxlen;//申请到的内存size 
+    object->maxlen = maxlen;//8192
     object->flag = flags;
 
     //use lock
@@ -94,10 +94,10 @@ int swChannel_in(swChannel *object, void *in, int data_length)
     swChannel_item *item;
     int msize = sizeof(item->length) + data_length;
 
-    if (object->tail < object->head) //空间不足就报错？？？？
+    if (object->tail < object->head) 
     {
         //no enough memory space
-        if ((object->head - object->tail) < msize)
+        if ((object->head - object->tail) < msize)//空间不足就报错？？？？
         {
             return SW_ERR;
         }
