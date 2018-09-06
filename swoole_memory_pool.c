@@ -160,11 +160,11 @@ static PHP_METHOD(swoole_memory_pool, __construct)
 
     MemoryPool *mp;
     if (shared)
-    {
+    {   //从全局中申请内存
         mp = (MemoryPool *) SwooleG.memory_pool->alloc(SwooleG.memory_pool, sizeof(MemorySlice));
     }
     else
-    {
+    {   //从php 内存管理器中申请内存
         mp = (MemoryPool *) emalloc(sizeof(MemorySlice));
     }
     if (mp == NULL)
@@ -181,9 +181,10 @@ static PHP_METHOD(swoole_memory_pool, __construct)
     mp->slice_count = 0;
     mp->released = 0;
 
-    swoole_set_object(getThis(), mp);
+    swoole_set_object(getThis(), mp);//保存 MemoryPool
 }
 
+//申请内存
 static PHP_METHOD(swoole_memory_pool, alloc)
 {
     MemoryPool* mp = (MemoryPool*) swoole_get_object(getThis());
@@ -220,13 +221,13 @@ static PHP_METHOD(swoole_memory_pool, alloc)
     }
 
     MemorySlice *info = (MemorySlice *) emalloc(sizeof(MemorySlice));
-    object_init_ex(return_value, ce_slice);
+    object_init_ex(return_value, ce_slice);//实例化ce_slice 类，作为返回值
     info->pool = mp;
     info->size = size;
     info->memory = memory;
     info->type = mp->type;
     sw_atomic_fetch_add(&mp->slice_count, 1);
-    swoole_set_object(return_value, info);
+    swoole_set_object(return_value, info); //保存info
 }
 
 static PHP_METHOD(swoole_memory_pool, __destruct)
@@ -258,6 +259,7 @@ static PHP_METHOD(swoole_memory_pool, __destruct)
     }
 }
 
+//读内存 返回string
 static PHP_METHOD(swoole_memory_pool_slice, read)
 {
     zend_long size = 0;
@@ -285,10 +287,11 @@ static PHP_METHOD(swoole_memory_pool_slice, read)
         swoole_php_error(E_WARNING, "offset(" ZEND_LONG_FMT ") is out of bounds.", offset);
         RETURN_FALSE;
     }
-
+    //retrun string
     RETURN_STRINGL((char * )info->memory + offset, size);
 }
 
+//write string to 内存
 static PHP_METHOD(swoole_memory_pool_slice, write)
 {
     zend_string *data;
@@ -314,7 +317,7 @@ static PHP_METHOD(swoole_memory_pool_slice, write)
         RETURN_FALSE;
     }
 
-    memcpy((char *) info->memory + offset, data->val, size);
+    memcpy((char *) info->memory + offset, data->val, size);//string to mem
 
     RETURN_TRUE;
 }

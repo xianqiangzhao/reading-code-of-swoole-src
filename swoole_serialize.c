@@ -14,6 +14,9 @@
   +----------------------------------------------------------------------+
  */
 
+//高性能的序列化库
+
+
 #include "php_swoole.h"
 #include "swoole_serialize.h"
 #ifdef __SSE2__
@@ -292,6 +295,9 @@ void CPINLINE swoole_memcpy_fast(void *destination, const void *source, size_t s
     {
         for(; size >= 64; size -= 64)
         {
+            //_mm_prefetch  _mm_load_si128 是sse SSE的全称是 Sreaming SIMD Extensions， 它是一组Intel CPU指令 
+            //介绍见 https://www.jianshu.com/p/d718c1ea5f22
+
             //load 时候将下次要用的数据提前fetch
             _mm_prefetch((const char*) (src + 64), _MM_HINT_NTA);
             _mm_prefetch((const char*) (dst + 64), _MM_HINT_T0);
@@ -1549,6 +1555,7 @@ PHPAPI int php_swoole_unserialize(void *buffer, size_t len, zval *return_value, 
     return SW_TRUE;
 }
 
+//pack
 static PHP_METHOD(swoole_serialize, pack)
 {
     zval *zvalue;
@@ -1564,6 +1571,7 @@ static PHP_METHOD(swoole_serialize, pack)
     RETURN_STR(z_str);
 }
 
+//unpack
 static PHP_METHOD(swoole_serialize, unpack)
 {
     char *buffer = NULL;
