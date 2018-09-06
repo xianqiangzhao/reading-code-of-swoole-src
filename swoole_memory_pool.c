@@ -17,6 +17,7 @@
  */
 #include "php_swoole.h"
 
+//共享内存池 官方文档没有，估计不建议使用了
 enum memory_pool_type
 {
     memory_pool_type_fixed = 0,
@@ -95,6 +96,8 @@ static const zend_function_entry swoole_memory_pool_slice_methods[] =
     PHP_FE_END
 };
 
+//初期化
+//注册两个class Swoole\Memory\Pool  Swoole\Memory\Pool\Slice
 void swoole_memory_pool_init(int module_number TSRMLS_DC)
 {
     static zend_class_entry _ce;
@@ -111,30 +114,31 @@ void swoole_memory_pool_init(int module_number TSRMLS_DC)
     zend_declare_class_constant_long(ce, SW_STRL("TYPE_MALLOC")-1, memory_pool_type_malloc TSRMLS_CC);
     zend_declare_class_constant_long(ce, SW_STRL("TYPE_EMALLOC")-1, memory_pool_type_emalloc TSRMLS_CC);
 }
-
+//构建函数
 static PHP_METHOD(swoole_memory_pool, __construct)
 {
     zend_long size, type, slice_size;
     zend_bool shared = 0;
-
+    //最少2个参数，最多4个
     ZEND_PARSE_PARAMETERS_START(2, 4)
-        Z_PARAM_LONG(size)
-        Z_PARAM_LONG(type)
+        Z_PARAM_LONG(size)  //申请大小
+        Z_PARAM_LONG(type)//类型
         Z_PARAM_OPTIONAL
         Z_PARAM_LONG(slice_size)
         Z_PARAM_BOOL(shared)
     ZEND_PARSE_PARAMETERS_END();
 
     swMemoryPool* pool = NULL;
+    //根据参数分配相应管理方式的内存
     if (type == memory_pool_type_fixed)
     {
-        void *memory = (shared == 1) ? sw_shm_malloc(size) : sw_malloc(size);
+        void *memory = (shared == 1) ? sw_shm_malloc(size) : sw_malloc(size);//是申请共享内存还是私有内存
         if (memory == NULL)
         {
             zend_throw_exception(swoole_exception_class_entry_ptr, "malloc failed.", SW_ERROR_MALLOC_FAIL TSRMLS_CC);
             RETURN_FALSE;
         }
-        pool = swFixedPool_new2(slice_size, memory, size);
+        pool = swFixedPool_new2(slice_size, memory, size);//把内存切块
     }
     else if (type == memory_pool_type_ring)
     {
@@ -142,7 +146,7 @@ static PHP_METHOD(swoole_memory_pool, __construct)
     }
     else if (type == memory_pool_type_global)
     {
-        pool = swMemoryGlobal_new(slice_size, shared);
+        pool = swMemoryGlobal_new(slice_size, shared);//global 内存
     }
     else if (type == memory_pool_type_malloc || type == memory_pool_type_malloc)
     {
