@@ -14,6 +14,8 @@
   +----------------------------------------------------------------------+
 */
 
+//进程管理模块  可以创建子进程来执行特定任务，父子进程可以通信，可以配合swoole_event 使用
+
 #if __APPLE__
 // Fix warning: 'daemon' is deprecated: first deprecated in macOS 10.5 - Use posix_spawn APIs instead. [-Wdeprecated-declarations]
 #define daemon yes_we_know_that_daemon_is_deprecated_in_os_x_10_5_thankyou
@@ -28,33 +30,33 @@ extern int daemon(int, int);
 #endif
 static PHP_METHOD(swoole_process, __construct);
 static PHP_METHOD(swoole_process, __destruct);
-static PHP_METHOD(swoole_process, useQueue);
-static PHP_METHOD(swoole_process, statQueue);
-static PHP_METHOD(swoole_process, freeQueue);
-static PHP_METHOD(swoole_process, pop);
-static PHP_METHOD(swoole_process, push);
+static PHP_METHOD(swoole_process, useQueue);//启用消息队列
+static PHP_METHOD(swoole_process, statQueue);//查看消息队列状态
+static PHP_METHOD(swoole_process, freeQueue);//删除队列
+static PHP_METHOD(swoole_process, pop);//从队列中提取数据
+static PHP_METHOD(swoole_process, push);//投递数据到消息队列中
 static PHP_METHOD(swoole_process, kill);
 static PHP_METHOD(swoole_process, signal);
-static PHP_METHOD(swoole_process, alarm);
-static PHP_METHOD(swoole_process, wait);
-static PHP_METHOD(swoole_process, daemon);
+static PHP_METHOD(swoole_process, alarm);//定时
+static PHP_METHOD(swoole_process, wait);//等待子进程信号
+static PHP_METHOD(swoole_process, daemon);//守护模式
 #ifdef HAVE_CPU_AFFINITY
-static PHP_METHOD(swoole_process, setaffinity);
+static PHP_METHOD(swoole_process, setaffinity);//CPU 亲和
 #endif
-static PHP_METHOD(swoole_process, setTimeout);
-static PHP_METHOD(swoole_process, setBlocking);
-static PHP_METHOD(swoole_process, start);
-static PHP_METHOD(swoole_process, write);
-static PHP_METHOD(swoole_process, read);
-static PHP_METHOD(swoole_process, close);
-static PHP_METHOD(swoole_process, exit);
-static PHP_METHOD(swoole_process, exec);
+static PHP_METHOD(swoole_process, setTimeout); //设置管道读写操作的超时时间
+static PHP_METHOD(swoole_process, setBlocking);//阻塞非阻塞
+static PHP_METHOD(swoole_process, start);//执行fork系统调用，启动进程
+static PHP_METHOD(swoole_process, write);//管道写数据
+static PHP_METHOD(swoole_process, read);//管道读数据
+static PHP_METHOD(swoole_process, close);//close 管道
+static PHP_METHOD(swoole_process, exit);//退出
+static PHP_METHOD(swoole_process, exec);//执行命令
 
 static void php_swoole_onSignal(int signo);
 static void free_signal_callback(void* data);
 
 static uint32_t php_swoole_worker_round_id = 0;
-static zval *signal_callback[SW_SIGNO_MAX];
+static zval *signal_callback[SW_SIGNO_MAX];//SW_SIGNO_MAX = 128
 static zend_class_entry swoole_process_ce;
 zend_class_entry *swoole_process_class_entry_ptr;
 
@@ -169,6 +171,7 @@ static const zend_function_entry swoole_process_methods[] =
     PHP_FE_END
 };
 
+//swoole_process 初始化
 void swoole_process_init(int module_number TSRMLS_DC)
 {
     SWOOLE_INIT_CLASS_ENTRY(swoole_process_ce, "swoole_process", "Swoole\\Process", swoole_process_methods);
@@ -193,6 +196,9 @@ void swoole_process_init(int module_number TSRMLS_DC)
      * 31 signal constants
      */
     zval *zpcntl;
+    //module_registry 是个hash table ，里面是所有的扩展信息
+    //这里的意思是查找php 中是否含有pcntl 模块，如果没有pcntl 模块的话注册全局信号常量
+    //相当于 define
     if (sw_zend_hash_find(&module_registry, ZEND_STRS("pcntl"), (void **) &zpcntl) == FAILURE)
     {
         REGISTER_LONG_CONSTANT("SIGHUP", (long) SIGHUP, CONST_CS | CONST_PERSISTENT);
@@ -236,6 +242,7 @@ void swoole_process_init(int module_number TSRMLS_DC)
     }
 }
 
+//构建函数
 static PHP_METHOD(swoole_process, __construct)
 {
     zend_bool redirect_stdin_and_stdout = 0;
@@ -243,12 +250,12 @@ static PHP_METHOD(swoole_process, __construct)
     zval *callback;
 
     //only cli env
-    if (!SWOOLE_G(cli))
+    if (!SWOOLE_G(cli))//只能工作在cli 模式
     {
         swoole_php_fatal_error(E_ERROR, "swoole_process only can be used in PHP CLI mode.");
         RETURN_FALSE;
     }
-
+    //如果已经启动swoole server 了并且是在master 进程中是不能启动process的
     if (SwooleG.serv && SwooleG.serv->gs->start == 1 && swIsMaster())
     {
         swoole_php_fatal_error(E_ERROR, "swoole_process can't be used in master process.");
@@ -260,36 +267,39 @@ static PHP_METHOD(swoole_process, __construct)
         swoole_php_fatal_error(E_ERROR, "unable to create process with async-io threads.");
         RETURN_FALSE;
     }
-
+    //三个参数
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|bl", &callback, &redirect_stdin_and_stdout, &pipe_type) == FAILURE)
     {
         RETURN_FALSE;
     }
 
     char *func_name = NULL;
+    //判断是否可以回调,不能回调的话，报错
     if (!sw_zend_is_callable(callback, 0, &func_name TSRMLS_CC))
     {
         swoole_php_fatal_error(E_ERROR, "function '%s' is not callable", func_name);
         efree(func_name);
         RETURN_FALSE;
     }
-    efree(func_name);
-
+    efree(func_name);//是否函数名
+    //定义 swWorker 结构体
+    //swWorker 是保存进程信息的结构体
     swWorker *process = emalloc(sizeof(swWorker));
     bzero(process, sizeof(swWorker));
 
     int base = 1;
+    //swoole server 如果已经启动，合计目前多少个进程 worker 进程数 + task 进程数
     if (SwooleG.serv && SwooleG.serv->gs->start)
     {
         base = SwooleG.serv->worker_num + SwooleG.serv->task_worker_num + SwooleG.serv->user_worker_num;
     }
-    if (php_swoole_worker_round_id == 0)
+    if (php_swoole_worker_round_id == 0) //初始php_swoole_worker_round_id就是0
     {
         php_swoole_worker_round_id = base;
     }
-    process->id = php_swoole_worker_round_id++;
+    process->id = php_swoole_worker_round_id++; //worker id 设置 就是所有进程和+1
 
-    if (redirect_stdin_and_stdout)
+    if (redirect_stdin_and_stdout)//标准输入输出是否写到屏幕上
     {
         process->redirect_stdin = 1;
         process->redirect_stdout = 1;
@@ -300,45 +310,49 @@ static PHP_METHOD(swoole_process, __construct)
         pipe_type = 1;
     }
 
-    if (pipe_type > 0)
+    if (pipe_type > 0)//创建管道
     {
         swPipe *_pipe = emalloc(sizeof(swPipe));
-        int socket_type = pipe_type == 1 ? SOCK_STREAM : SOCK_DGRAM;
-        if (swPipeUnsock_create(_pipe, 1, socket_type) < 0)
+        int socket_type = pipe_type == 1 ? SOCK_STREAM : SOCK_DGRAM;//创建什么类型的管道
+        if (swPipeUnsock_create(_pipe, 1, socket_type) < 0)//创建管道，用于父子进程通信
         {
             RETURN_FALSE;
         }
 
-        process->pipe_object = _pipe;
-        process->pipe_master = _pipe->getFd(_pipe, SW_PIPE_MASTER);
-        process->pipe_worker = _pipe->getFd(_pipe, SW_PIPE_WORKER);
+        process->pipe_object = _pipe;//管道信息保存到swworker 结构体中
+        process->pipe_master = _pipe->getFd(_pipe, SW_PIPE_MASTER); // 父进程的管道 
+        process->pipe_worker = _pipe->getFd(_pipe, SW_PIPE_WORKER);//子进程的管道
         process->pipe = process->pipe_master;
 
         zend_update_property_long(swoole_process_class_entry_ptr, getThis(), ZEND_STRL("pipe"), process->pipe_master TSRMLS_CC);
     }
 
-    swoole_set_object(getThis(), process);
+    swoole_set_object(getThis(), process);//把process 保存
+    //把传进来的回调函数保存起来
     zend_update_property(swoole_process_class_entry_ptr, getThis(), ZEND_STRL("callback"), callback TSRMLS_CC);
 }
 
+//析构函数
 static PHP_METHOD(swoole_process, __destruct)
 {
     SW_PREVENT_USER_DESTRUCT;
 
     swWorker *process = swoole_get_object(getThis());
-    swPipe *_pipe = process->pipe_object;
+    swPipe *_pipe = process->pipe_object;//管道取得
     if (_pipe)
     {
-        _pipe->close(_pipe);
+        _pipe->close(_pipe);//关闭管道
         efree(_pipe);
     }
-    if (process->queue)
+    if (process->queue)//消息队列关闭
     {
         efree(process->queue);
     }
-    efree(process);
+    efree(process);//释放process 
 }
 
+
+//子进程等待
 static PHP_METHOD(swoole_process, wait)
 {
     int status;
@@ -356,12 +370,12 @@ static PHP_METHOD(swoole_process, wait)
     }
 
     pid_t pid = swWaitpid(-1, &status, options);
-    if (pid > 0)
+    if (pid > 0) //有子进程退出 pid 就大于0
     {
         array_init(return_value);
-        add_assoc_long(return_value, "pid", pid);
-        add_assoc_long(return_value, "code", WEXITSTATUS(status));
-        add_assoc_long(return_value, "signal", WTERMSIG(status));
+        add_assoc_long(return_value, "pid", pid); //返回数组 第一个元素 pid
+        add_assoc_long(return_value, "code", WEXITSTATUS(status)); //返回状态
+        add_assoc_long(return_value, "signal", WTERMSIG(status));//子进程退出信号
     }
     else
     {
@@ -440,12 +454,12 @@ static PHP_METHOD(swoole_process, freeQueue)
         RETURN_FALSE;
     }
 }
-
+//kill 进程
 static PHP_METHOD(swoole_process, kill)
 {
     long pid;
     long sig = SIGTERM;
-
+    //两个参数 一个是pid ，一个是信号
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|l", &pid, &sig) == FAILURE)
     {
         RETURN_FALSE;

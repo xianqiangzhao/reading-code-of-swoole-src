@@ -1366,13 +1366,14 @@ int swSocket_sendfile_sync(int sock, char *filename, off_t offset, size_t length
 int swSocket_write_blocking(int __fd, void *__data, int __len);
 int swSocket_recv_blocking(int fd, void *__data, size_t __len, int flags);
 
+//等待子进程退出
 static sw_inline int swWaitpid(pid_t __pid, int *__stat_loc, int __options)
 {
     int ret;
     do
     {
-        ret = waitpid(__pid, __stat_loc, __options);
-        if (ret < 0 && errno == EINTR)
+        ret = waitpid(__pid, __stat_loc, __options);//__options 为阻塞的话就会阻塞在这里。不阻塞的话进入break 跳出
+        if (ret < 0 && errno == EINTR) //被系统中断的话继续
         {
             continue;
         }
@@ -1381,6 +1382,7 @@ static sw_inline int swWaitpid(pid_t __pid, int *__stat_loc, int __options)
     return ret;
 }
 
+//kill 进程
 static sw_inline int swKill(pid_t __pid, int __sig)
 {
     int ret;
