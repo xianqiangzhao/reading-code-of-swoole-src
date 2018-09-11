@@ -53,9 +53,9 @@ swChannel* swChannel_new(size_t size, int maxlen, int flags)
     bzero(object, sizeof(swChannel));
 
     //overflow space
-    object->size = size;//申请到的内存size 
+    object->size = size;//8192
     object->mem = mem;  //申请到的内存地址是头存放swShareMemory接着是swChannel，后面才是可用的内存，也就是会都申请出来两个他们两个的结构体的内存。
-    object->maxlen = maxlen;//8192
+    object->maxlen = maxlen;//申请到的内存size 
     object->flag = flags;
 
     //use lock
@@ -84,6 +84,11 @@ swChannel* swChannel_new(size_t size, int maxlen, int flags)
 /**
  * push data(no lock)  //数据放入channel
  */
+//swChannel 是一个环形结构
+//存放数据 tail 增大，当 tail >size 时 tail =0  
+//取出数据 head 增大，当head > size 时 head = 0
+//也就是循环利用这部分空间
+//有个问题是 当要存入的size 大于剩余空间时，回越界。韩老大的解决办法是申请内存时就多申请8192 bytes
 int swChannel_in(swChannel *object, void *in, int data_length)
 {
     assert(data_length <= object->maxlen);
@@ -91,13 +96,13 @@ int swChannel_in(swChannel *object, void *in, int data_length)
     {
         return SW_ERR;
     }
-    swChannel_item *item;
-    int msize = sizeof(item->length) + data_length;
+    swChannel_item *item;//存放数据的实体
+    int msize = sizeof(item->length) + data_length;//swChannel_item 的长度是 一个int + char data[0] ,也就是除去 int 就是实际要存放数据的空间。
 
-    if (object->tail < object->head) 
+    if (object->tail < object->head) //空间不足
     {
         //no enough memory space
-        if ((object->head - object->tail) < msize)//空间不足就报错？？？？
+        if ((object->head - object->tail) < msize)
         {
             return SW_ERR;
         }
@@ -107,7 +112,7 @@ int swChannel_in(swChannel *object, void *in, int data_length)
     else
     {
         item = object->mem + object->tail; //item 执行内存地址，第一次时object->tail = 0
-        object->tail += msize;
+        object->tail += msize;//tail 增大
         if (object->tail >= object->size)
         {
             object->tail = 0;
