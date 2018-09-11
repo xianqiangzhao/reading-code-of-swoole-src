@@ -281,7 +281,7 @@ static PHP_METHOD(swoole_process, __construct)
         efree(func_name);
         RETURN_FALSE;
     }
-    efree(func_name);//是否函数名
+    efree(func_name);//释放
     //定义 swWorker 结构体
     //swWorker 是保存进程信息的结构体
     swWorker *process = emalloc(sizeof(swWorker));
@@ -314,14 +314,14 @@ static PHP_METHOD(swoole_process, __construct)
     {
         swPipe *_pipe = emalloc(sizeof(swPipe));
         int socket_type = pipe_type == 1 ? SOCK_STREAM : SOCK_DGRAM;//创建什么类型的管道
-        if (swPipeUnsock_create(_pipe, 1, socket_type) < 0)//创建管道，用于父子进程通信
+        if (swPipeUnsock_create(_pipe, 1, socket_type) < 0)//创建管道，用于父子进程通信，这里是阻塞方式
         {
             RETURN_FALSE;
         }
 
         process->pipe_object = _pipe;//管道信息保存到swworker 结构体中
-        process->pipe_master = _pipe->getFd(_pipe, SW_PIPE_MASTER); // 父进程的管道 
-        process->pipe_worker = _pipe->getFd(_pipe, SW_PIPE_WORKER);//子进程的管道
+        process->pipe_master = _pipe->getFd(_pipe, SW_PIPE_MASTER); //写管道描述符 
+        process->pipe_worker = _pipe->getFd(_pipe, SW_PIPE_WORKER);//读描述符
         process->pipe = process->pipe_master;
 
         zend_update_property_long(swoole_process_class_entry_ptr, getThis(), ZEND_STRL("pipe"), process->pipe_master TSRMLS_CC);
@@ -477,6 +477,8 @@ static PHP_METHOD(swoole_process, kill)
     RETURN_TRUE;
 }
 
+//信号处理函数
+//第一个参数时信号值，第二个参数时回调函数
 static PHP_METHOD(swoole_process, signal)
 {
     zval *callback = NULL;
@@ -492,7 +494,7 @@ static PHP_METHOD(swoole_process, signal)
         swoole_php_fatal_error(E_ERROR, "cannot use swoole_process::signal here.");
         RETURN_FALSE;
     }
-
+    //信号处理程序check
     if (SwooleG.serv && SwooleG.serv->gs->start)
     {
         if ((swIsWorker() || swIsTaskWorker()) && signo == SIGTERM)
@@ -513,9 +515,9 @@ static PHP_METHOD(swoole_process, signal)
     }
 
     php_swoole_check_reactor();
-    swSignalHander handler;
+    swSignalHander handler;//typedef void (*swSignalHander)(int);
 
-    if (callback == NULL || ZVAL_IS_NULL(callback))
+    if (callback == NULL || ZVAL_IS_NULL(callback))//回调函数为NULL
     {
         callback = signal_callback[signo];
         if (callback)
@@ -532,14 +534,14 @@ static PHP_METHOD(swoole_process, signal)
         }
     }
     else if (Z_TYPE_P(callback) == IS_LONG && Z_LVAL_P(callback) == (long) SIG_IGN)
-    {
+    {//回到函数为long 且为信号忽略的话 handler = null
         handler = NULL;
     }
     else
     {
         char *func_name;
         if (!sw_zend_is_callable(callback, 0, &func_name TSRMLS_CC))
-        {
+        {//判断是否可以回调
             swoole_php_error(E_WARNING, "function '%s' is not callable", func_name);
             efree(func_name);
             RETURN_FALSE;
@@ -549,7 +551,7 @@ static PHP_METHOD(swoole_process, signal)
         callback = sw_zval_dup(callback);
         sw_zval_add_ref(&callback);
 
-        handler = php_swoole_onSignal;
+        handler = php_swoole_onSignal;//信号处理函数
     }
 
     /**
@@ -558,18 +560,18 @@ static PHP_METHOD(swoole_process, signal)
     SwooleG.main_reactor->check_signalfd = 1;
 
     //free the old callback
-    if (signal_callback[signo])
+    if (signal_callback[signo])//删除老的信号处理函数
     {
         SwooleG.main_reactor->defer(SwooleG.main_reactor, free_signal_callback, signal_callback[signo]);
     }
-    signal_callback[signo] = callback;
+    signal_callback[signo] = callback;//设置信号回调函数
 
     /**
      * use user settings
      */
-    SwooleG.use_signalfd = SwooleG.enable_signalfd;
+    SwooleG.use_signalfd = SwooleG.enable_signalfd;//设置是否可以使用signailfd
 
-    swSignal_add(signo, handler);
+    swSignal_add(signo, handler);//信号处理追加
 
     RETURN_TRUE;
 }
@@ -642,31 +644,32 @@ static void free_signal_callback(void* data)
 /**
  * safe signal
  */
+//信号处理程序
 static void php_swoole_onSignal(int signo)
 {
     zval *retval = NULL;
     zval **args[1];
-    zval *callback = signal_callback[signo];
+    zval *callback = signal_callback[signo];//该信号回调函数
 
     zval *zsigno;
     SW_MAKE_STD_ZVAL(zsigno);
     ZVAL_LONG(zsigno, signo);
 
-    args[0] = &zsigno;
-
+    args[0] = &zsigno;//设置传递给回调函数的参数（signo）
+    //调用回调函数
     if (sw_call_user_function_ex(EG(function_table), NULL, callback, &retval, 1, args, 0, NULL TSRMLS_CC) == FAILURE)
     {
         swoole_php_fatal_error(E_WARNING, "user_signal handler error");
     }
-    if (EG(exception))
+    if (EG(exception)) //异常时
     {
         zend_exception_error(EG(exception), E_ERROR TSRMLS_CC);
     }
-    if (retval != NULL)
+    if (retval != NULL)//返回值
     {
-        sw_zval_ptr_dtor(&retval);
+        sw_zval_ptr_dtor(&retval);//返回值释放
     }
-    sw_zval_ptr_dtor(&zsigno);
+    sw_zval_ptr_dtor(&zsigno);//参数释放
 }
 
 int php_swoole_process_start(swWorker *process, zval *object TSRMLS_DC)

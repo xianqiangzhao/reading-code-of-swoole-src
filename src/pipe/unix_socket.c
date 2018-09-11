@@ -38,6 +38,8 @@ typedef struct _swPipeUnsock
     uint8_t pipe_worker_closed;
 } swPipeUnsock;
 
+//取得套接字描述符
+// master = 1 时取得写端的描述符，以外的场合取得读端的描述符
 static int swPipeUnsock_getFd(swPipe *p, int master)
 {
     swPipeUnsock *this = p->object;
@@ -84,10 +86,11 @@ int swPipeUnsock_close_ext(swPipe *p, int which)
     return 0 - ret1 - ret2;
 }
 
+//进程通信管道建立
 int swPipeUnsock_create(swPipe *p, int blocking, int protocol)
 {
     int ret;
-    swPipeUnsock *object = sw_malloc(sizeof(swPipeUnsock));
+    swPipeUnsock *object = sw_malloc(sizeof(swPipeUnsock));//申请内存
     if (object == NULL)
     {
         swWarn("malloc() failed.");
@@ -95,8 +98,9 @@ int swPipeUnsock_create(swPipe *p, int blocking, int protocol)
     }
     bzero(object, sizeof(swPipeUnsock));
     p->blocking = blocking;
+    //http://man7.org/linux/man-pages/man2/socketpair.2.html
     ret = socketpair(AF_UNIX, protocol, 0, object->socks);
-    if (ret < 0)
+    if (ret < 0) //error 
     {
         swWarn("socketpair() failed. Error: %s [%d]", strerror(errno), errno);
         sw_free(object);
@@ -105,31 +109,31 @@ int swPipeUnsock_create(swPipe *p, int blocking, int protocol)
     else
     {
         //Nonblock
-        if (blocking == 0)
+        if (blocking == 0)//第二个参数为0 时，进行非阻塞设置
         {
             swSetNonBlock(object->socks[0]);
             swSetNonBlock(object->socks[1]);
         }
 
-        int sbsize = SwooleG.socket_buffer_size;
+        int sbsize = SwooleG.socket_buffer_size;//SwooleG.socket_buffer_size = SW_SOCKET_BUFFER_SIZE (8*1024*1024)
         swSocket_set_buffer_size(object->socks[0], sbsize);
         swSocket_set_buffer_size(object->socks[1], sbsize);
 
-        p->object = object;
-        p->read = swPipeUnsock_read;
-        p->write = swPipeUnsock_write;
-        p->getFd = swPipeUnsock_getFd;
-        p->close = swPipeUnsock_close;
+        p->object = object;//把swPipeUnsock赋值给p->object， p->object 是 void 类型
+        p->read = swPipeUnsock_read;//读数据
+        p->write = swPipeUnsock_write;//写数据
+        p->getFd = swPipeUnsock_getFd;//取得套接字描述符
+        p->close = swPipeUnsock_close;//关闭套接字
     }
     return 0;
 }
 
 static int swPipeUnsock_read(swPipe *p, void *data, int length)
 {
-    return read(((swPipeUnsock *) p->object)->socks[0], data, length);
+    return read(((swPipeUnsock *) p->object)->socks[0], data, length);//读数据到data 中，大小是length
 }
 
-static int swPipeUnsock_write(swPipe *p, void *data, int length)
+static int swPipeUnsock_write(swPipe *p, void *data, int length)//写数据到socks[1] ,数据是 data，大小是length
 {
     return write(((swPipeUnsock *) p->object)->socks[1], data, length);
 }

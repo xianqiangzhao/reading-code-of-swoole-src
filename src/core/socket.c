@@ -410,13 +410,16 @@ int swSocket_bind(int sock, int type, char *host, int *port)
     return ret;
 }
 
+//设置套接字缓冲区
 int swSocket_set_buffer_size(int fd, int buffer_size)
-{
+{   
+    //设置发送缓冲区
     if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &buffer_size, sizeof(buffer_size)) < 0)
     {
         swSysError("setsockopt(%d, SOL_SOCKET, SO_SNDBUF, %d) failed.", fd, buffer_size);
         return SW_ERR;
     }
+    //设置接收缓冲区
     if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &buffer_size, sizeof(buffer_size)) < 0)
     {
         swSysError("setsockopt(%d, SOL_SOCKET, SO_RCVBUF, %d) failed.", fd, buffer_size);

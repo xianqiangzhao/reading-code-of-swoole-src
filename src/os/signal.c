@@ -14,6 +14,7 @@
   +----------------------------------------------------------------------+
 */
 
+//信号处理
 #include "swoole.h"
 
 #ifdef HAVE_SIGNALFD
@@ -33,12 +34,12 @@ static void swKqueueSignal_set(int signo, swSignalHander callback);
 
 typedef struct
 {
-    swSignalHander callback;
-    uint16_t signo;
-    uint16_t active;
+    swSignalHander callback;//信号回调函数
+    uint16_t signo; //信号值
+    uint16_t active;//是否active
 } swSignal;
 
-static swSignal signals[SW_SIGNO_MAX];
+static swSignal signals[SW_SIGNO_MAX];//定义 SW_SIGNO_MAX 128个 swsignal结构
 static int _lock = 0;
 
 static void swSignal_async_handler(int signo);
@@ -46,11 +47,12 @@ static void swSignal_async_handler(int signo);
 /**
  * clear all singal
  */
+//清除所有信号
 void swSignal_none(void)
 {
     sigset_t mask;
-    sigfillset(&mask);
-    int ret = pthread_sigmask(SIG_BLOCK, &mask, NULL);
+    sigfillset(&mask);//填充mask
+    int ret = pthread_sigmask(SIG_BLOCK, &mask, NULL);//设置默认信号处理
     if (ret < 0)
     {
         swWarn("pthread_sigmask() failed. Error: %s[%d]", strerror(ret), ret);
@@ -73,10 +75,11 @@ swSignalHander swSignal_set(int sig, swSignalHander func, int restart, int mask)
         func = SIG_DFL;
     }
 
-    struct sigaction act, oact;
-    act.sa_handler = func;
+    struct sigaction act, oact;//信号按照系统函数
+    act.sa_handler = func;//设置信号处理函数
     if (mask)
-    {
+    {   //specifies a mask of signals which should be blocked
+        //也就是信号发生时，进入信号处理程序中，这时要阻塞的信号
         sigfillset(&act.sa_mask);
     }
     else
@@ -84,17 +87,17 @@ swSignalHander swSignal_set(int sig, swSignalHander func, int restart, int mask)
         sigemptyset(&act.sa_mask);
     }
     act.sa_flags = 0;
-    if (sigaction(sig, &act, &oact) < 0)
+    if (sigaction(sig, &act, &oact) < 0)//安装信号
     {
         return NULL;
     }
-    return oact.sa_handler;
+    return oact.sa_handler;//返回老的信号处理程序
 }
-
+//信号处理追加
 void swSignal_add(int signo, swSignalHander func)
 {
 #ifdef HAVE_SIGNALFD
-    if (SwooleG.use_signalfd)
+    if (SwooleG.use_signalfd)//支持信号signalfd的话，默认时支持的 http://man7.org/linux/man-pages/man2/signalfd.2.html
     {
         swSignalfd_set(signo, func);
     }
@@ -192,7 +195,7 @@ void swSignalfd_init()
     sigemptyset(&signalfd_mask);
     bzero(&signals, sizeof(signals));
 }
-
+//信号挂载函数
 static void swSignalfd_set(int signo, swSignalHander callback)
 {
     if (callback == NULL && signals[signo].active)

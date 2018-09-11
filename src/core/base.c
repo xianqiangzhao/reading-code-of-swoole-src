@@ -750,6 +750,7 @@ void swoole_ioctl_set_block(int sock, int nonblock)
     }
 }
 
+//套接字阻塞非阻塞设置
 void swoole_fcntl_set_option(int sock, int nonblock, int cloexec)
 {
     int opts, ret;
@@ -758,7 +759,7 @@ void swoole_fcntl_set_option(int sock, int nonblock, int cloexec)
     {
         do
         {
-            opts = fcntl(sock, F_GETFL);
+            opts = fcntl(sock, F_GETFL);//取得套接字文件描述符flag
         }
         while (opts < 0 && errno == EINTR);
 
@@ -767,11 +768,11 @@ void swoole_fcntl_set_option(int sock, int nonblock, int cloexec)
             swSysError("fcntl(%d, GETFL) failed.", sock);
         }
 
-        if (nonblock)
+        if (nonblock) //非阻塞设置
         {
             opts = opts | O_NONBLOCK;
         }
-        else
+        else //阻塞设置
         {
             opts = opts & ~O_NONBLOCK;
         }
