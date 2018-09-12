@@ -37,13 +37,16 @@ static void swReactor_onFinish(swReactor *reactor);
 static void swReactor_onBegin(swReactor *reactor);
 static int swReactor_defer(swReactor *reactor, swCallback callback, void *data);
 
+//创建reactor
+//reactor是一种事件驱动体系结构 
+//https://www.jianshu.com/p/eef7ebe28673
 int swReactor_create(swReactor *reactor, int max_event)
 {
     int ret;
     bzero(reactor, sizeof(swReactor));
 
 #ifdef HAVE_EPOLL
-    ret = swReactorEpoll_create(reactor, max_event);
+    ret = swReactorEpoll_create(reactor, max_event); //create epoll事件模型
 #elif defined(HAVE_KQUEUE)
     ret = swReactorKqueue_create(reactor, max_event);
 #elif defined(HAVE_POLL)
@@ -51,10 +54,10 @@ int swReactor_create(swReactor *reactor, int max_event)
 #else
     ret = swReactorSelect_create(reactor);
 #endif
-
-    reactor->running = 1;
-
-    reactor->setHandle = swReactor_setHandle;
+sizeof(swConnection)
+    reactor->running = 1; // 为1是事件处理启动，为0的话事件处理停止 epoll wait 循环的判断条件
+    //注册回调函数
+    reactor->setHandle = swReactor_setHandle;//设定事件回调函数方法
 
     reactor->onFinish = swReactor_onFinish;
     reactor->onTimeout = swReactor_onTimeout;
@@ -63,7 +66,7 @@ int swReactor_create(swReactor *reactor, int max_event)
     reactor->defer = swReactor_defer;
     reactor->close = swReactor_close;
 
-    reactor->socket_array = swArray_new(1024, sizeof(swConnection));
+    reactor->socket_array = swArray_new(1024, sizeof(swConnection));//分配 1024 * sizeof(swConnection) 内存空间
     if (!reactor->socket_array)
     {
         swWarn("create socket array failed.");
@@ -73,27 +76,28 @@ int swReactor_create(swReactor *reactor, int max_event)
     return ret;
 }
 
+//设置事件类型与相应的回调函数
 int swReactor_setHandle(swReactor *reactor, int _fdtype, swReactor_handle handle)
 {
-    int fdtype = swReactor_fdtype(_fdtype);
+    int fdtype = swReactor_fdtype(_fdtype);//取得fdtype
 
-    if (fdtype >= SW_MAX_FDTYPE)
+    if (fdtype >= SW_MAX_FDTYPE) // SW_MAX_FDTYPE= 32
     {
         swWarn("fdtype > SW_MAX_FDTYPE[%d]", SW_MAX_FDTYPE);
         return SW_ERR;
     }
 
-    if (swReactor_event_read(_fdtype))
+    if (swReactor_event_read(_fdtype))//_fdtype  < 256 || fdtype & SW_EVENT_READ 时为read 事件
     {
-        reactor->handle[fdtype] = handle;
+        reactor->handle[fdtype] = handle;//保存为读handle
     }
-    else if (swReactor_event_write(_fdtype))
+    else if (swReactor_event_write(_fdtype))//fdtype & SW_EVENT_WRITE （100000000000）
     {
-        reactor->write_handle[fdtype] = handle;
+        reactor->write_handle[fdtype] = handle;//保存为写handle
     }
     else if (swReactor_event_error(_fdtype))
     {
-        reactor->error_handle[fdtype] = handle;
+        reactor->error_handle[fdtype] = handle;//保存为错误handle
     }
     else
     {

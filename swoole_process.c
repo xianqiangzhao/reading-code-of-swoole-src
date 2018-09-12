@@ -513,7 +513,7 @@ static PHP_METHOD(swoole_process, signal)
             RETURN_FALSE;
         }
     }
-
+    //启动reactor 进程
     php_swoole_check_reactor();
     swSignalHander handler;//typedef void (*swSignalHander)(int);
 

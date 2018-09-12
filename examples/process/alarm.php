@@ -1,7 +1,7 @@
 <?php
 swoole_process::signal(SIGALRM, function ()
 {
-    static $i = 0;
+      $i = 0;
     echo "#{$i}\talarm\n";
     $i++;
     if ($i > 20)
@@ -11,3 +11,12 @@ swoole_process::signal(SIGALRM, function ()
 });
 
 swoole_process::alarm(100 * 1000);
+
+/**
+ * 
+ */
+
+
+
+
+

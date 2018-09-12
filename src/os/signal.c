@@ -217,10 +217,13 @@ static void swSignalfd_set(int signo, swSignalHander callback)
     }
 }
 
+//建立信号描述符
 int swSignalfd_setup(swReactor *reactor)
 {
     if (signal_fd == 0)
-    {
+    {   
+        //http://www.man7.org/linux/man-pages/man2/signalfd.2.html
+        // create a file descriptor for accepting signals
         signal_fd = signalfd(-1, &signalfd_mask, SFD_NONBLOCK | SFD_CLOEXEC);
         if (signal_fd < 0)
         {
@@ -233,7 +236,9 @@ int swSignalfd_setup(swReactor *reactor)
             swWarn("sigprocmask() failed. Error: %s[%d]", strerror(errno), errno);
             return SW_ERR;
         }
-        reactor->setHandle(reactor, SW_FD_SIGNAL, swSignalfd_onSignal);
+        //设置事件回调函数 也就是SW_FD_SIGNAL （11）可读事件发生时就回调 swSignalfd_onSignal 函数
+        reactor->setHandle(reactor, SW_FD_SIGNAL, swSignalfd_onSignal);//
+        //设置监控的描述符 signal_fd ，监听SW_FD_SIGNAL事件
         reactor->add(reactor, signal_fd, SW_FD_SIGNAL);
         return SW_OK;
     }
@@ -258,11 +263,12 @@ static void swSignalfd_clear()
     signal_fd = 0;
 }
 
+//信号处理函数
 static int swSignalfd_onSignal(swReactor *reactor, swEvent *event)
 {
     int n;
     struct signalfd_siginfo siginfo;
-    n = read(event->fd, &siginfo, sizeof(siginfo));
+    n = read(event->fd, &siginfo, sizeof(siginfo));//从信号描述符中读取siginfo
     if (n < 0)
     {
         swWarn("read from signalfd failed. Error: %s[%d]", strerror(errno), errno);
@@ -273,11 +279,11 @@ static int swSignalfd_onSignal(swReactor *reactor, swEvent *event)
         swWarn("unknown signal[%d].", siginfo.ssi_signo);
         return SW_OK;
     }
-    if (signals[siginfo.ssi_signo].active)
+    if (signals[siginfo.ssi_signo].active)//判断信号是否有效，并回调信号处理函数
     {
         if (signals[siginfo.ssi_signo].callback)
         {
-            signals[siginfo.ssi_signo].callback(siginfo.ssi_signo);
+            signals[siginfo.ssi_signo].callback(siginfo.ssi_signo);//回调信号处理函数 参数是信号值
         }
         else
         {

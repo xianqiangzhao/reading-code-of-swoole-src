@@ -75,7 +75,7 @@ typedef cpuset_t cpu_set_t;
 #include <sys/types.h>
 #include <sys/utsname.h>
 
-#ifdef __MACH__
+#ifdef __MACH__ 
 #include <mach/clock.h>
 #include <mach/mach_time.h>
 #include <sys/sysctl.h>
@@ -233,7 +233,7 @@ enum swReturnType
     SW_READY    = 5,
 };
 //-------------------------------------------------------------------------------
-enum swFd_type
+enum swFd_type //描述符事件
 {
     SW_FD_TCP             = 0, //tcp socket
     SW_FD_LISTEN          = 1, //server socket
@@ -246,7 +246,7 @@ enum swFd_type
     SW_FD_TIMER           = 8, //timer fd
     SW_FD_AIO             = 9, //linux native aio
     SW_FD_CORO_SOCKET     = 10, //CoroSocket
-    SW_FD_SIGNAL          = 11, //signalfd
+    SW_FD_SIGNAL          = 11, //signalfd   信号事件
     SW_FD_DNS_RESOLVER    = 12, //dns resolver
     SW_FD_INOTIFY         = 13, //server socket
     SW_FD_CHAN_PIPE       = 14, //channel pipe
@@ -261,13 +261,13 @@ enum swBool_type
     SW_FALSE = 0,
 };
 
-enum swEvent_type
+enum swEvent_type //事件类型
 {
     SW_EVENT_DEAULT = 256,
-    SW_EVENT_READ = 1u << 9,
-    SW_EVENT_WRITE = 1u << 10,
-    SW_EVENT_ERROR = 1u << 11,
-    SW_EVENT_ONCE = 1u << 12,
+    SW_EVENT_READ = 1u << 9,  //1000000000  读事件
+    SW_EVENT_WRITE = 1u << 10,//10000000000  写事件
+    SW_EVENT_ERROR = 1u << 11,//100000000000  错误事件
+    SW_EVENT_ONCE = 1u << 12, //1000000000000  只监听一次事件
 };
 
 enum swPipe_type
@@ -285,15 +285,15 @@ enum swGlobal_hook_type
 };
 
 //-------------------------------------------------------------------------------
-enum swServer_mode
+enum swServer_mode //server 启动服务模式
 {
     SW_MODE_BASE          =  1,
     SW_MODE_THREAD        =  2,
-    SW_MODE_PROCESS       =  3,
+    SW_MODE_PROCESS       =  3,//默认
     SW_MODE_SINGLE        =  4,
 };
 //-------------------------------------------------------------------------------
-enum swSocket_type
+enum swSocket_type //socket 类型
 {
     SW_SOCK_TCP          =  1,
     SW_SOCK_UDP          =  2,
@@ -748,15 +748,15 @@ typedef struct _swDataHead
 
 typedef struct _swEvent
 {
-    int fd;
-    int16_t from_id;
-    uint8_t type;
-    swConnection *socket;
+    int fd; //fd
+    int16_t from_id; //事件触发from_id
+    uint8_t type;  //类型
+    swConnection *socket; //conn 信息
 } swEvent;
 
-typedef struct _swEventData
+typedef struct _swEventData //事件data
 {
-    swDataHead info;
+    swDataHead info; //事件head
     char data[SW_BUFFER_SIZE];//65535
 } swEventData;
 
@@ -1426,7 +1426,7 @@ typedef struct _swDefer_callback
     void *data;
 } swDefer_callback;
 
-struct _swReactor
+struct _swReactor //核心关键结构  为事件处理提供底层支持
 {
     void *object;
     void *ptr;  //reserve
@@ -1486,17 +1486,17 @@ struct _swReactor
      */
     swArray *socket_array;
 
-    swReactor_handle handle[SW_MAX_FDTYPE];        //默认事件
+    swReactor_handle handle[SW_MAX_FDTYPE];        //默认事件  SW_MAX_FDTYPE = 32
     swReactor_handle write_handle[SW_MAX_FDTYPE];  //扩展事件1(一般为写事件)
     swReactor_handle error_handle[SW_MAX_FDTYPE];  //扩展事件2(一般为错误事件,如socket关闭)
-
+    //给特定描述符事件追加，设置，删除监听
     int (*add)(swReactor *, int fd, int fdtype);
     int (*set)(swReactor *, int fd, int fdtype);
     int (*del)(swReactor *, int fd);
     int (*wait)(swReactor *, struct timeval *);
     void (*free)(swReactor *);
-
-    int (*setHandle)(swReactor *, int fdtype, swReactor_handle);
+    //设置事件回调函数
+    int (*setHandle)(swReactor *, int fdtype, swReactor_handle); //这个实体函数执行后 会把回调函数放到 handle或write_handle中
     swDefer_callback *defer_tasks;
     swDefer_callback idle_task;
     swDefer_callback future_task;
@@ -1670,7 +1670,7 @@ static sw_inline int swReactor_error(swReactor *reactor)
     switch (errno)
     {
     case EINTR:
-        if (reactor->singal_no)
+        if (reactor->singal_no)//默认好像没有注册
         {
             swSignal_callback(reactor->singal_no);
             reactor->singal_no = 0;
@@ -1680,11 +1680,13 @@ static sw_inline int swReactor_error(swReactor *reactor)
     return SW_ERR;
 }
 
+//判断是否为读事件
 static sw_inline int swReactor_event_read(int fdtype)
 {
-    return (fdtype < SW_EVENT_DEAULT) || (fdtype & SW_EVENT_READ);
+    return (fdtype < SW_EVENT_DEAULT) || (fdtype & SW_EVENT_READ); //SW_EVENT_DEAULT= 256
 }
 
+//是否为写事件
 static sw_inline int swReactor_event_write(int fdtype)
 {
     return fdtype & SW_EVENT_WRITE;
@@ -1695,6 +1697,7 @@ static sw_inline int swReactor_event_error(int fdtype)
     return fdtype & SW_EVENT_ERROR;
 }
 
+//取得 fd 类型
 static sw_inline int swReactor_fdtype(int fdtype)
 {
     return fdtype & (~SW_EVENT_READ) & (~SW_EVENT_WRITE) & (~SW_EVENT_ERROR);
@@ -1726,12 +1729,14 @@ int swReactor_create(swReactor *reactor, int max_event);
 int swReactor_setHandle(swReactor *, int, swReactor_handle);
 int swReactor_empty(swReactor *reactor);
 
+//取得 socket
 static sw_inline swConnection* swReactor_get(swReactor *reactor, int fd)
 {
-    if (reactor->thread)
+    if (reactor->thread)//server 线程模式
     {
         return &reactor->socket_list[fd];
     }
+    //新分配个socket
     swConnection *socket = (swConnection*) swArray_alloc(reactor->socket_array, fd);
     if (socket == NULL)
     {

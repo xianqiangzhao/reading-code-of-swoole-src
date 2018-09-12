@@ -225,7 +225,7 @@ void php_swoole_check_reactor()
         {
             swoole_php_fatal_error(E_ERROR, "malloc failed.");
             return;
-        }
+        }//创建 reactor 
         if (swReactor_create(SwooleG.main_reactor, SW_REACTOR_MAXEVENTS) < 0)
         {
             swoole_php_fatal_error(E_ERROR, "failed to create reactor.");
@@ -241,17 +241,22 @@ void php_swoole_check_reactor()
         SwooleWG.reactor_wait_onexit = 1;
         SwooleWG.reactor_ready = 0;
         //only client side
+        //注册请求shutdown 时执行 swoole_event_wait 函数进入事件等待
         php_swoole_at_shutdown("swoole_event_wait");
     }
-
+    //设定读事件处理函数
     SwooleG.main_reactor->setHandle(SwooleG.main_reactor, SW_FD_USER | SW_EVENT_READ, php_swoole_event_onRead);
+    //设定写事件处理函数
     SwooleG.main_reactor->setHandle(SwooleG.main_reactor, SW_FD_USER | SW_EVENT_WRITE, php_swoole_event_onWrite);
+    //设定错误处理函数
     SwooleG.main_reactor->setHandle(SwooleG.main_reactor, SW_FD_USER | SW_EVENT_ERROR, php_swoole_event_onError);
+    //写处理函数
     SwooleG.main_reactor->setHandle(SwooleG.main_reactor, SW_FD_WRITE, swReactor_onWrite);
 
     SwooleWG.reactor_init = 1;
 }
 
+//事件等待函数
 void php_swoole_event_wait()
 {
     if (SwooleWG.in_client == 1 && SwooleWG.reactor_ready == 0 && SwooleG.running)
@@ -269,12 +274,12 @@ void php_swoole_event_wait()
                 break;
             }
         }
-        SwooleWG.reactor_ready = 1;
+        SwooleWG.reactor_ready = 1;//设置ready 参数
 
 #ifdef HAVE_SIGNALFD
-        if (SwooleG.main_reactor->check_signalfd)
+        if (SwooleG.main_reactor->check_signalfd) //1
         {
-            swSignalfd_setup(SwooleG.main_reactor);
+            swSignalfd_setup(SwooleG.main_reactor);//信号初始化
         }
 #endif
 
@@ -286,7 +291,7 @@ void php_swoole_event_wait()
 #endif
         if (!swReactor_empty(SwooleG.main_reactor))
         {
-            int ret = SwooleG.main_reactor->wait(SwooleG.main_reactor, NULL);
+            int ret = SwooleG.main_reactor->wait(SwooleG.main_reactor, NULL);//进入事件等待 第二个参数 epoll等待时间
             if (ret < 0)
             {
                 swoole_php_fatal_error(E_ERROR, "reactor wait failed. Error: %s [%d]", strerror(errno), errno);
@@ -294,7 +299,7 @@ void php_swoole_event_wait()
         }
         if (SwooleG.timer.map)
         {
-            php_swoole_clear_all_timer();
+            php_swoole_clear_all_timer(); //清除定时器
         }
         SwooleWG.reactor_exit = 1;
     }
@@ -811,12 +816,14 @@ PHP_FUNCTION(swoole_event_exit)
     }
 }
 
+//php 脚本执行完毕后执行的回调函数
 PHP_FUNCTION(swoole_event_wait)
 {
     if (!SwooleG.main_reactor)
     {
         return;
     }
+    //进入事件等待函数
     php_swoole_event_wait();
 }
 

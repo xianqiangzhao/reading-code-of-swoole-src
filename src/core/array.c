@@ -30,7 +30,7 @@ swArray *swArray_new(int page_size, size_t item_size)
     }
     bzero(array, sizeof(swArray));
 
-    array->pages = sw_malloc(sizeof(void*) * SW_ARRAY_PAGE_MAX);
+    array->pages = sw_malloc(sizeof(void*) * SW_ARRAY_PAGE_MAX);//SW_ARRAY_PAGE_MAX = 1024 个页面
     if (array->pages == NULL)
     {
         sw_free(array);
@@ -38,8 +38,8 @@ swArray *swArray_new(int page_size, size_t item_size)
         return NULL;
     }
 
-    array->item_size = item_size;
-    array->page_size = page_size;
+    array->item_size = item_size;//数据元素的尺寸
+    array->page_size = page_size;//每页的数据元素个数 1024
 
     swArray_extend(array);
 
@@ -63,6 +63,7 @@ void swArray_free(swArray *array)
 /**
  * Extend the memory pages of the array
  */
+//扩展内存page
 int swArray_extend(swArray *array)
 {
     if (array->page_num == SW_ARRAY_PAGE_MAX)
@@ -70,7 +71,7 @@ int swArray_extend(swArray *array)
         swWarn("max page_num is %d", array->page_num);
         return SW_ERR;
     }
-    array->pages[array->page_num] = sw_calloc(array->page_size, array->item_size);
+    array->pages[array->page_num] = sw_calloc(array->page_size, array->item_size);//分配一个页面的内存，内存大小是 每页的数据元素个数*数据元素的尺寸
     if (array->pages[array->page_num] == NULL)
     {
         swWarn("malloc[1] failed.");
