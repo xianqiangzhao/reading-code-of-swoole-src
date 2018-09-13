@@ -63,7 +63,7 @@ void swArray_free(swArray *array)
 /**
  * Extend the memory pages of the array
  */
-//扩展内存page
+//扩展内存page 也就是增加一页
 int swArray_extend(swArray *array)
 {
     if (array->page_num == SW_ARRAY_PAGE_MAX)
@@ -77,26 +77,30 @@ int swArray_extend(swArray *array)
         swWarn("malloc[1] failed.");
         return SW_ERR;
     }
-    array->page_num++;
+    array->page_num++;//页数++
     return SW_OK;
 }
 
 /**
  * Fetch data by index of the array
  */
+//取得存储元素的其实地址
 void *swArray_fetch(swArray *array, uint32_t n)
-{
-    int page = swArray_page(array, n);
+{   //取得在第几页
+    int page = swArray_page(array, n); //swArray_page(array, n) = ((n) / (array)->page_size)
     if (page >= array->page_num)
     {
         return NULL;
     }
+    //取得页面上的位置
+    // swArray_offset(array, n) = ((n) % (array)->page_size)
     return array->pages[page] + (swArray_offset(array, n) * array->item_size);
 }
 
 /**
  * Append to the array
  */
+//这个方法没有地方用
 int swArray_append(swArray *array, void *data)
 {
     int n = array->offset++;
@@ -111,11 +115,11 @@ int swArray_append(swArray *array, void *data)
     return n;
 }
 
-
+//data 放到array 中 这个方法没有地方用
 int swArray_store(swArray *array, uint32_t n, void *data)
 {
     int page = swArray_page(array, n);
-    if (page >= array->page_num)
+    if (page >= array->page_num)//超页
     {
         swWarn("fetch index[%d] out of array", n);
         return SW_ERR;
@@ -124,11 +128,13 @@ int swArray_store(swArray *array, uint32_t n, void *data)
     return SW_OK;
 }
 
+//返回n 的存储位置 
 void *swArray_alloc(swArray *array, uint32_t n)
 {
+    //n >= 当前页数*每页数据size
     while (n >= array->page_num * array->page_size)
     {
-        if (swArray_extend(array) < 0)
+        if (swArray_extend(array) < 0)//增加一页
         {
             return NULL;
         }

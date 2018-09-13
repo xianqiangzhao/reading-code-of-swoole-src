@@ -576,6 +576,7 @@ static PHP_METHOD(swoole_process, signal)
     RETURN_TRUE;
 }
 
+//alarm 定时器，定时触发alarm 信号
 static PHP_METHOD(swoole_process, alarm)
 {
     long usec = 0;
@@ -605,6 +606,11 @@ static PHP_METHOD(swoole_process, alarm)
         RETURN_FALSE;
     }
 
+/* struct itimerval {
+    struct timeval it_interval; /* next value  
+    struct timeval it_value;    /* current value  
+};
+*/
     struct itimerval timer_set;
     bzero(&timer_set, sizeof(timer_set));
 
@@ -626,6 +632,7 @@ static PHP_METHOD(swoole_process, alarm)
         }
     }
 
+//https://linux.die.net/man/2/setitimer
     if (setitimer(type, &timer_set, NULL) < 0)
     {
         swoole_php_error(E_WARNING, "setitimer() failed. Error: %s[%d]", strerror(errno), errno);
@@ -635,6 +642,7 @@ static PHP_METHOD(swoole_process, alarm)
     RETURN_TRUE;
 }
 
+//free 信号回调
 static void free_signal_callback(void* data)
 {
     zval *callback = (zval*) data;
@@ -649,7 +657,7 @@ static void php_swoole_onSignal(int signo)
 {
     zval *retval = NULL;
     zval **args[1];
-    zval *callback = signal_callback[signo];//该信号回调函数
+    zval *callback = signal_callback[signo];//取得用户定义的信号回调函数
 
     zval *zsigno;
     SW_MAKE_STD_ZVAL(zsigno);
@@ -672,6 +680,7 @@ static void php_swoole_onSignal(int signo)
     sw_zval_ptr_dtor(&zsigno);//参数释放
 }
 
+//
 int php_swoole_process_start(swWorker *process, zval *object TSRMLS_DC)
 {
     process->pipe = process->pipe_worker;
