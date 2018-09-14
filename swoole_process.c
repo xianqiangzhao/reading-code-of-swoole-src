@@ -776,32 +776,34 @@ int php_swoole_process_start(swWorker *process, zval *object TSRMLS_DC)
     return SW_OK;
 }
 
+//process 启动
 static PHP_METHOD(swoole_process, start)
 {
-    swWorker *process = swoole_get_object(getThis());
+    swWorker *process = swoole_get_object(getThis());//取得 process
 
-    if (process->pid > 0 && kill(process->pid, 0) == 0)
+    if (process->pid > 0 && kill(process->pid, 0) == 0) //防止多重启动
     {
         swoole_php_fatal_error(E_WARNING, "process has already been started.");
         RETURN_FALSE;
     }
 
-    pid_t pid = fork();
+    pid_t pid = fork();//拉起一个新的进程
     if (pid < 0)
     {
         swoole_php_fatal_error(E_WARNING, "fork() failed. Error: %s[%d]", strerror(errno), errno);
         RETURN_FALSE;
     }
-    else if (pid > 0)
+    else if (pid > 0)//父进程
     {
         process->pid = pid;
-        process->child_process = 0;
+        process->child_process = 0;//是否是子进程
         zend_update_property_long(swoole_server_class_entry_ptr, getThis(), ZEND_STRL("pid"), process->pid TSRMLS_CC);
         RETURN_LONG(pid);
     }
-    else
+    else//子进程
     {
         process->child_process = 1;
+        //调用php_swoole_process_start 启动子进程
         SW_CHECK_RETURN(php_swoole_process_start(process, getThis() TSRMLS_CC));
     }
     RETURN_TRUE;
