@@ -253,7 +253,7 @@ static void swSignalfd_clear()
 {
     if (signal_fd)
     {
-        if (sigprocmask(SIG_UNBLOCK, &signalfd_mask, NULL) < 0)
+        if (sigprocmask(SIG_UNBLOCK, &signalfd_mask, NULL) < 0)//清除信号阻塞
         {
             swSysError("sigprocmask(SIG_UNBLOCK) failed.");
         }

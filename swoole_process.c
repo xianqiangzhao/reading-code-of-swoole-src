@@ -513,7 +513,7 @@ static PHP_METHOD(swoole_process, signal)
             RETURN_FALSE;
         }
     }
-    //启动reactor 进程
+    //启动reactor 进程,会调用 swoole_event_wait 进入事件循环
     php_swoole_check_reactor();
     swSignalHander handler;//typedef void (*swSignalHander)(int);
 
@@ -680,13 +680,15 @@ static void php_swoole_onSignal(int signo)
     sw_zval_ptr_dtor(&zsigno);//参数释放
 }
 
-//
+//子进程 process 启动
+//子进程在启动时会清除从父进程继承的EventLoop、Signal、Timer
 int php_swoole_process_start(swWorker *process, zval *object TSRMLS_DC)
 {
-    process->pipe = process->pipe_worker;
-    process->pid = getpid();
+    process->pipe = process->pipe_worker; //取得和父进程通信的管道
+    process->pid = getpid();//取得进程id
 
-    if (process->redirect_stdin)
+
+    if (process->redirect_stdin) //如果是读终端，管道则直接赋值一个新的指向终端的描述符
     {
         if (dup2(process->pipe, STDIN_FILENO) < 0)
         {
@@ -696,13 +698,13 @@ int php_swoole_process_start(swWorker *process, zval *object TSRMLS_DC)
 
     if (process->redirect_stdout)
     {
-        if (dup2(process->pipe, STDOUT_FILENO) < 0)
+        if (dup2(process->pipe, STDOUT_FILENO) < 0)//输出
         {
             swoole_php_fatal_error(E_WARNING, "dup2() failed. Error: %s[%d]", strerror(errno), errno);
         }
     }
 
-    if (process->redirect_stderr)
+    if (process->redirect_stderr)//错误输出
     {
         if (dup2(process->pipe, STDERR_FILENO) < 0)
         {
@@ -715,11 +717,15 @@ int php_swoole_process_start(swWorker *process, zval *object TSRMLS_DC)
      */
     if (SwooleG.main_reactor)
     {
+    
+        //reactor->free = swReactorEpoll_free;
+        //释放epoll
         SwooleG.main_reactor->free(SwooleG.main_reactor);
         SwooleG.main_reactor = NULL;
         swTraceLog(SW_TRACE_PHP, "destroy reactor");
     }
-
+    //SwooleWG 是 Worker Global Variable
+    //设置为0
     bzero(&SwooleWG, sizeof(SwooleWG));
     SwooleG.pid = process->pid;
     if (SwooleG.process_type != SW_PROCESS_USERWORKER)
@@ -728,17 +734,19 @@ int php_swoole_process_start(swWorker *process, zval *object TSRMLS_DC)
     }
     SwooleWG.id = process->id;
 
-    if (SwooleG.timer.fd)
+    if (SwooleG.timer.fd)//有信号 signal timer  的话清除
     {
         swTimer_free(&SwooleG.timer);
         bzero(&SwooleG.timer, sizeof(SwooleG.timer));
     }
 
-    swSignal_clear();
-
+    swSignal_clear();//信号清除
+    //pipeid 保存到class 属性
     zend_update_property_long(swoole_process_class_entry_ptr, object, ZEND_STRL("pid"), process->pid TSRMLS_CC);
     zend_update_property_long(swoole_process_class_entry_ptr, object, ZEND_STRL("pipe"), process->pipe_worker TSRMLS_CC);
 
+    //zcallback 是__construct 时传过来的php回调函数
+    //取得并执行
     zval *zcallback = sw_zend_read_property(swoole_process_class_entry_ptr, object, ZEND_STRL("callback"), 0 TSRMLS_CC);
     zval **args[1];
 
@@ -766,7 +774,7 @@ int php_swoole_process_start(swWorker *process, zval *object TSRMLS_DC)
         sw_zval_ptr_dtor(&retval);
     }
 
-    if (SwooleG.main_reactor)
+    if (SwooleG.main_reactor)//
     {
         php_swoole_event_wait();
     }
@@ -809,10 +817,11 @@ static PHP_METHOD(swoole_process, start)
     RETURN_TRUE;
 }
 
+//read
 static PHP_METHOD(swoole_process, read)
 {
     long buf_size = 8192;
-
+    //buf_size 可选参数
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|l", &buf_size) == FAILURE)
     {
         RETURN_FALSE;
@@ -846,7 +855,7 @@ static PHP_METHOD(swoole_process, read)
     SW_ZVAL_STRINGL(return_value, buf, ret, 0);
     efree(buf);
 }
-
+//管道写
 static PHP_METHOD(swoole_process, write)
 {
     char *data = NULL;
@@ -877,7 +886,8 @@ static PHP_METHOD(swoole_process, write)
     {
         swConnection *_socket = swReactor_get(SwooleG.main_reactor, process->pipe);
         if (_socket && _socket->nonblock)
-        {
+        {   //异步写
+            //reactor->write = swReactor_write;
             ret = SwooleG.main_reactor->write(SwooleG.main_reactor, process->pipe, data, (size_t) data_len);
         }
         else
@@ -886,7 +896,7 @@ static PHP_METHOD(swoole_process, write)
         }
     }
     else
-    {
+    {   //同步写
         _blocking_read: ret = swSocket_write_blocking(process->pipe, data, data_len);
     }
 
@@ -987,6 +997,7 @@ static PHP_METHOD(swoole_process, pop)
     SW_RETURN_STRINGL(message.data, n, 1);
 }
 
+//exec 执行命令
 static PHP_METHOD(swoole_process, exec)
 {
     char *execfile = NULL;
@@ -1024,12 +1035,15 @@ static PHP_METHOD(swoole_process, exec)
         swoole_php_fatal_error(E_WARNING, "execv(%s) failed. Error: %s[%d]", execfile, strerror(errno), errno);
         RETURN_FALSE;
     }
-    else
+    else//execv 执行成功的话这里不会跑到
     {
         RETURN_TRUE;
     }
 }
 
+//守护进程模式
+//$nochdir，为true表示不要切换当前目录到根目录。
+//$noclose，为true表示不要关闭标准输入输出文件描述符
 static PHP_METHOD(swoole_process, daemon)
 {
     zend_bool nochdir = 1;
@@ -1041,7 +1055,7 @@ static PHP_METHOD(swoole_process, daemon)
     }
     RETURN_BOOL(daemon(nochdir, noclose) == 0);
 }
-
+//设置CPU亲和性，可以将进程绑定到特定的CPU核上。
 #ifdef HAVE_CPU_AFFINITY
 static PHP_METHOD(swoole_process, setaffinity)
 {
@@ -1054,6 +1068,7 @@ static PHP_METHOD(swoole_process, setaffinity)
     {
         RETURN_FALSE;
     }
+    //SW_CPU_NUM= sysconf(_SC_NPROCESSORS_ONLN); 实际cpu 的核心数
     if (Z_ARRVAL_P(array)->nNumOfElements > SW_CPU_NUM)
     {
         swoole_php_fatal_error(E_WARNING, "More than the number of CPU");
@@ -1074,10 +1089,12 @@ static PHP_METHOD(swoole_process, setaffinity)
         CPU_SET(Z_LVAL_P(value), &cpu_set);
     SW_HASHTABLE_FOREACH_END();
 
+//不同系統不同的設定函數
 #ifdef __FreeBSD__
     if (cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_PID, -1,
                            sizeof(cpu_set), &cpu_set) < 0)
 #else
+    //把当前进程设置在固定的核心上
     if (sched_setaffinity(getpid(), sizeof(cpu_set), &cpu_set) < 0)
 #endif
     {
@@ -1088,6 +1105,7 @@ static PHP_METHOD(swoole_process, setaffinity)
 }
 #endif
 
+//退出子进程
 static PHP_METHOD(swoole_process, exit)
 {
     long ret_code = 0;
@@ -1113,7 +1131,7 @@ static PHP_METHOD(swoole_process, exit)
 
     close(process->pipe);
 
-    SwooleG.running = 0;
+    SwooleG.running = 0; //退出事件循环
 
     if (ret_code == 0)
     {
@@ -1125,6 +1143,7 @@ static PHP_METHOD(swoole_process, exit)
     }
 }
 
+//close 管道
 static PHP_METHOD(swoole_process, close)
 {
     long which = 0;
@@ -1143,15 +1162,15 @@ static PHP_METHOD(swoole_process, close)
     int ret;
     if (which == SW_PIPE_CLOSE_READ)
     {
-        ret = shutdown(process->pipe, SHUT_RD);
+        ret = shutdown(process->pipe, SHUT_RD);//关闭读
     }
     else if (which == SW_PIPE_CLOSE_WRITE)
     {
-        ret = shutdown(process->pipe, SHUT_WR);
+        ret = shutdown(process->pipe, SHUT_WR);//关闭写
     }
     else
     {
-        ret = swPipeUnsock_close_ext(process->pipe_object, which);
+        ret = swPipeUnsock_close_ext(process->pipe_object, which);//关闭读写端
     }
     if (ret < 0)
     {
@@ -1167,6 +1186,7 @@ static PHP_METHOD(swoole_process, close)
     RETURN_TRUE;
 }
 
+//设置管道读写操作的超时时间
 static PHP_METHOD(swoole_process, setTimeout)
 {
     double seconds;
@@ -1181,9 +1201,11 @@ static PHP_METHOD(swoole_process, setTimeout)
         swoole_php_fatal_error(E_WARNING, "no pipe, can not setTimeout the pipe.");
         RETURN_FALSE;
     }
+    //process 进程读写超时时间设定
     SW_CHECK_RETURN(swSocket_set_timeout(process->pipe, seconds));
 }
 
+//设置管道阻塞非阻塞
 static PHP_METHOD(swoole_process, setBlocking)
 {
     zend_bool blocking;
@@ -1200,13 +1222,13 @@ static PHP_METHOD(swoole_process, setBlocking)
     }
     if (blocking)
     {
-        swSetBlock(process->pipe);
+        swSetBlock(process->pipe);//阻塞
     }
     else
     {
-        swSetNonBlock(process->pipe);
+        swSetNonBlock(process->pipe);//非阻塞
     }
-    if (SwooleG.main_reactor)
+    if (SwooleG.main_reactor)//有事件循环的话设置 socket ,其实这个socket 就是pipe
     {
         swConnection *_socket = swReactor_get(SwooleG.main_reactor, process->pipe);
         if (_socket)

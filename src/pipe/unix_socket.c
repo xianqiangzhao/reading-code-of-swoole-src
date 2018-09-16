@@ -54,6 +54,7 @@ static int swPipeUnsock_close(swPipe *p)
     return ret;
 }
 
+//关闭管道
 int swPipeUnsock_close_ext(swPipe *p, int which)
 {
     int ret1 = 0, ret2 = 0;

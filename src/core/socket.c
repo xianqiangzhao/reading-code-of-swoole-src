@@ -169,7 +169,7 @@ int swSocket_wait_multi(int *list_of_fd, int n_fd, int timeout_ms, int events)
     sw_free(event_list);
     return SW_OK;
 }
-
+//阻塞写
 int swSocket_write_blocking(int __fd, void *__data, int __len)
 {
     int n = 0;
@@ -178,14 +178,14 @@ int swSocket_write_blocking(int __fd, void *__data, int __len)
     while (written < __len)
     {
         n = write(__fd, __data + written, __len - written);
-        if (n < 0)
+        if (n < 0) //写错误
         {
-            if (errno == EINTR)
+            if (errno == EINTR) //中断引起的
             {
                 continue;
             }
-            else if (swConnection_error(errno) == SW_WAIT)
-            {
+            else if (swConnection_error(errno) == SW_WAIT)//错误号为 EAGAIN（一般在非阻塞） or 0 时
+            {   //poll 等待可写
                 swSocket_wait(__fd, SW_WORKER_WAIT_TIMEOUT, SW_EVENT_WRITE);
                 continue;
             }
@@ -428,6 +428,7 @@ int swSocket_set_buffer_size(int fd, int buffer_size)
     return SW_OK;
 }
 
+//设置管道读写操作的超时时间
 int swSocket_set_timeout(int sock, double timeout)
 {
     int ret;

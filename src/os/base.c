@@ -88,12 +88,14 @@ void swAio_callback_test(swAio_event *aio_event)
     SwooleG.running = 0;
 }
 
+//守护进程模式启动
+//脱离控制中断，进入后台运行模式
 #ifndef HAVE_DAEMON
 int daemon(int nochdir, int noclose)
 {
     pid_t pid;
 
-    if (!nochdir && chdir("/") != 0)
+    if (!nochdir && chdir("/") != 0) //切换到根目录
     {
         swWarn("chdir() failed. Error: %s[%d]", strerror(errno), errno);
         return -1;
@@ -101,34 +103,34 @@ int daemon(int nochdir, int noclose)
 
     if (!noclose)
     {
-        int fd = open("/dev/null", O_RDWR);
+        int fd = open("/dev/null", O_RDWR);//打开空设备文件
         if (fd < 0)
         {
             swWarn("open() failed. Error: %s[%d]", strerror(errno), errno);
             return -1;
         }
 
-        if (dup2(fd, 0) < 0 || dup2(fd, 1) < 0 || dup2(fd, 2) < 0)
+        if (dup2(fd, 0) < 0 || dup2(fd, 1) < 0 || dup2(fd, 2) < 0) //把fd 复制给标准输入输出以及错误
         {
             close(fd);
             swWarn("dup2() failed. Error: %s[%d]", strerror(errno), errno);
             return -1;
         }
 
-        close(fd);
+        close(fd);//关闭
     }
 
-    pid = fork();
+    pid = fork();//拉起一个进程
     if (pid < 0)
     {
         swWarn("fork() failed. Error: %s[%d]", strerror(errno), errno);
         return -1;
     }
-    if (pid > 0)
+    if (pid > 0)//父进程退出
     {
         _exit(0);
     }
-    if (setsid() < 0)
+    if (setsid() < 0)//设置进程为新的会话的领头进程
     {
         swWarn("setsid() failed. Error: %s[%d]", strerror(errno), errno);
         return -1;
