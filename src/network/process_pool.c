@@ -36,9 +36,9 @@ int swProcessPool_create(swProcessPool *pool, int worker_num, int max_request, k
 {
     bzero(pool, sizeof(swProcessPool));
 
-    pool->worker_num = worker_num;
-    pool->max_request = max_request;
-
+    pool->worker_num = worker_num;//worker 进程数量
+    pool->max_request = max_request;//0
+    //分配worker 进程共享内存
     pool->workers = SwooleG.memory_pool->alloc(SwooleG.memory_pool, worker_num * sizeof(swWorker));
     if (pool->workers == NULL)
     {
@@ -46,7 +46,7 @@ int swProcessPool_create(swProcessPool *pool, int worker_num, int max_request, k
         return SW_ERR;
     }
 
-    if (ipc_mode == SW_IPC_MSGQUEUE)
+    if (ipc_mode == SW_IPC_MSGQUEUE)//进程间通信方式为消息队列
     {
         pool->use_msgqueue = 1;
         pool->msgqueue_key = msgqueue_key;
@@ -63,7 +63,7 @@ int swProcessPool_create(swProcessPool *pool, int worker_num, int max_request, k
             return SW_ERR;
         }
     }
-    else if (ipc_mode == SW_IPC_SOCKET)
+    else if (ipc_mode == SW_IPC_SOCKET)//socket 通信
     {
         pool->use_socket = 1;
         pool->stream = sw_malloc(sizeof(swStreamInfo));
@@ -74,9 +74,9 @@ int swProcessPool_create(swProcessPool *pool, int worker_num, int max_request, k
         }
         bzero(pool->stream, sizeof(swStreamInfo));
     }
-    else if (ipc_mode == SW_IPC_UNIXSOCK)
+    else if (ipc_mode == SW_IPC_UNIXSOCK)//unixsock 
     {
-        pool->pipes = sw_calloc(worker_num, sizeof(swPipe));
+        pool->pipes = sw_calloc(worker_num, sizeof(swPipe));//分配通信管道
         if (pool->pipes == NULL)
         {
             swWarn("malloc[2] failed.");
@@ -101,7 +101,7 @@ int swProcessPool_create(swProcessPool *pool, int worker_num, int max_request, k
     {
         ipc_mode = SW_IPC_NONE;
     }
-
+    //hashmap
     pool->map = swHashMap_new(SW_HASHMAP_INIT_BUCKET_N, NULL);
     if (pool->map == NULL)
     {
@@ -112,12 +112,13 @@ int swProcessPool_create(swProcessPool *pool, int worker_num, int max_request, k
     pool->ipc_mode = ipc_mode;
     if (ipc_mode > SW_IPC_NONE)
     {
-        pool->main_loop = swProcessPool_worker_loop;
+        pool->main_loop = swProcessPool_worker_loop;//main loop
     }
 
     return SW_OK;
 }
 
+//创建 unix socket 
 int swProcessPool_create_unix_socket(swProcessPool *pool, char *socket_file, int blacklog)
 {
     if (pool->ipc_mode != SW_IPC_SOCKET)
@@ -138,6 +139,7 @@ int swProcessPool_create_unix_socket(swProcessPool *pool, char *socket_file, int
     return SW_OK;
 }
 
+//创建 tcp socket 
 int swProcessPool_create_tcp_socket(swProcessPool *pool, char *host, int port, int blacklog)
 {
     if (pool->ipc_mode != SW_IPC_SOCKET)
@@ -145,11 +147,12 @@ int swProcessPool_create_tcp_socket(swProcessPool *pool, char *host, int port, i
         swWarn("ipc_mode is not SW_IPC_SOCKET.");
         return SW_ERR;
     }
-    pool->stream->socket_file = sw_strdup(host);
+    pool->stream->socket_file = sw_strdup(host);//申请新的内存，保存host 值
     if (pool->stream->socket_file == NULL)
     {
         return SW_ERR;
     }
+    //建立socket,返回fd
     pool->stream->socket = swSocket_create_server(SW_SOCK_TCP, host, port, blacklog);
     if (pool->stream->socket < 0)
     {

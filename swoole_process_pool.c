@@ -14,6 +14,7 @@
   +----------------------------------------------------------------------+
 */
 
+//进程池，基于Server的Manager模块实现。可管理多个工作进程。
 #include "php_swoole.h"
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_swoole_process_pool_void, 0, 0, 0)
@@ -72,6 +73,7 @@ static zend_class_entry swoole_process_pool_ce;
 static zend_class_entry *swoole_process_pool_class_entry_ptr;
 static swProcessPool *current_pool;
 
+//初期化
 void swoole_process_pool_init(int module_number TSRMLS_DC)
 {
     SWOOLE_INIT_CLASS_ENTRY(swoole_process_pool_ce, "swoole_process_pool", "Swoole\\Process\\Pool", swoole_process_pool_methods);
@@ -204,6 +206,7 @@ static void php_swoole_process_pool_signal_hanlder(int sig)
     }
 }
 
+//构造函数
 static PHP_METHOD(swoole_process_pool, __construct)
 {
     long worker_num;
@@ -233,7 +236,7 @@ static PHP_METHOD(swoole_process_pool, __construct)
         zend_throw_exception_ex(swoole_exception_class_entry_ptr, errno TSRMLS_CC, "invalid worker_num");
         RETURN_FALSE;
     }
-
+    //进程pool对象
     swProcessPool *pool = emalloc(sizeof(swProcessPool));
     if (swProcessPool_create(pool, worker_num, 0, (key_t) msgq_key, ipc_type) < 0)
     {
@@ -250,7 +253,7 @@ static PHP_METHOD(swoole_process_pool, __construct)
         }
     }
 
-    pool->ptr = sw_zval_dup(getThis());
+    pool->ptr = sw_zval_dup(getThis());//保存当前class 对象
 
     process_pool_property *pp = emalloc(sizeof(process_pool_property));
     bzero(pp, sizeof(process_pool_property));
@@ -258,6 +261,7 @@ static PHP_METHOD(swoole_process_pool, __construct)
     swoole_set_object(getThis(), pool);
 }
 
+//注册回调函数
 static PHP_METHOD(swoole_process_pool, on)
 {
     char *name;
@@ -266,7 +270,7 @@ static PHP_METHOD(swoole_process_pool, on)
 
     swProcessPool *pool = swoole_get_object(getThis());
 
-    if (pool->started > 0)
+    if (pool->started > 0)//如果已经启动就报错
     {
         swoole_php_fatal_error(E_WARNING, "process pool is started. unable to register event callback function.");
         RETURN_FALSE;
@@ -276,7 +280,7 @@ static PHP_METHOD(swoole_process_pool, on)
     {
         return;
     }
-
+    //判断是否为回调函数
     if (!php_swoole_is_callable(callback))
     {
         RETURN_FALSE;
@@ -290,7 +294,7 @@ static PHP_METHOD(swoole_process_pool, on)
         {
             sw_zval_ptr_dtor(&pp->onWorkerStart);
         }
-        pp->onWorkerStart = callback;
+        pp->onWorkerStart = callback;//onworkstart 的回调函数
         sw_zval_add_ref(&callback);
         sw_copy_to_stack(pp->onWorkerStart, pp->_onWorkerStart);
         RETURN_TRUE;
@@ -306,9 +310,9 @@ static PHP_METHOD(swoole_process_pool, on)
         {
             sw_zval_ptr_dtor(&pp->onMessage);
         }
-        pp->onMessage = callback;
+        pp->onMessage = callback;//onMessage 的回调函数
         sw_zval_add_ref(&callback);
-        sw_copy_to_stack(pp->onMessage, pp->_onMessage);
+        sw_copy_to_stack(pp->onMessage, pp->_onMessage);//*pp->onMessage copy to pp->_onMessage 即回调函数
         RETURN_TRUE;
     }
     else if (strncasecmp("WorkerStop", name, l_name) == 0)
@@ -329,6 +333,7 @@ static PHP_METHOD(swoole_process_pool, on)
     }
 }
 
+//listen
 static PHP_METHOD(swoole_process_pool, listen)
 {
     char *host;
@@ -360,10 +365,12 @@ static PHP_METHOD(swoole_process_pool, listen)
     //unix socket
     if (strncasecmp("unix:/", host, 6) == 0)
     {
+        //unix listen
         ret = swProcessPool_create_unix_socket(pool, host + 5, backlog);
     }
     else
     {
+        //tcp listen
         ret = swProcessPool_create_tcp_socket(pool, host, port, backlog);
     }
     SW_CHECK_RETURN(ret);
@@ -392,6 +399,7 @@ static PHP_METHOD(swoole_process_pool, write)
     SW_CHECK_RETURN(swProcessPool_response(pool, data, length));
 }
 
+//启动
 static PHP_METHOD(swoole_process_pool, start)
 {
     swProcessPool *pool = swoole_get_object(getThis());

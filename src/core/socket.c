@@ -293,6 +293,7 @@ int swSocket_sendto_blocking(int fd, void *__buf, size_t __n, int flag, struct s
     return n;
 }
 
+//建立socket 
 int swSocket_create(int type)
 {
     int _domain;
@@ -301,7 +302,7 @@ int swSocket_create(int type)
     switch (type)
     {
     case SW_SOCK_TCP:
-        _domain = PF_INET;
+        _domain = PF_INET;//PF_INET = AF_INET             
         _type = SOCK_STREAM;
         break;
     case SW_SOCK_TCP6:
@@ -331,6 +332,7 @@ int swSocket_create(int type)
     return socket(_domain, _type, 0);
 }
 
+//bind
 int swSocket_bind(int sock, int type, char *host, int *port)
 {
     int ret;
@@ -387,11 +389,13 @@ int swSocket_bind(int sock, int type, char *host, int *port)
     else
     {
         bzero(&addr_in4, sizeof(addr_in4));
+        //host 转为点分地址
         inet_pton(AF_INET, host, &(addr_in4.sin_addr));
         addr_in4.sin_port = htons(*port);
-        addr_in4.sin_family = AF_INET;
+        addr_in4.sin_family = AF_INET;//协议族
+        //绑定
         ret = bind(sock, (struct sockaddr *) &addr_in4, sizeof(addr_in4));
-        if (ret == 0 && *port == 0)
+        if (ret == 0 && *port == 0)//当端口为空时，取得自动分配的端口
         {
             len = sizeof(addr_in4);
             if (getsockname(sock, (struct sockaddr *) &addr_in4, &len) != -1)
@@ -450,6 +454,7 @@ int swSocket_set_timeout(int sock, double timeout)
     return SW_OK;
 }
 
+//根据host ,port 建立socket
 int swSocket_create_server(int type, char *address, int port, int backlog)
 {
 #if 0
@@ -477,19 +482,19 @@ int swSocket_create_server(int type, char *address, int port, int backlog)
         address = host;
     }
 #endif
-
+    //建立 socket
     int fd = swSocket_create(type);
     if (fd < 0)
     {
         swoole_error_log(SW_LOG_ERROR, SW_ERROR_SYSTEM_CALL_FAIL, "socket() failed. Error: %s[%d]", strerror(errno), errno);
         return SW_ERR;
     }
-
+    //bind
     if (swSocket_bind(fd, type, address, &port) < 0)
     {
         return SW_ERR;
     }
-
+    //listen
     if (listen(fd, backlog) < 0)
     {
         swoole_error_log(SW_LOG_ERROR, SW_ERROR_SYSTEM_CALL_FAIL, "listen(%s:%d, %d) failed. Error: %s[%d]", address, port, backlog, strerror(errno), errno);

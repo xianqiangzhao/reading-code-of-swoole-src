@@ -477,7 +477,7 @@ static PHP_METHOD(swoole_process, kill)
     RETURN_TRUE;
 }
 
-//信号处理函数
+//信号处理函数 会启动事件循环
 //第一个参数时信号值，第二个参数时回调函数
 static PHP_METHOD(swoole_process, signal)
 {

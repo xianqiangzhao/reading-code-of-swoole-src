@@ -1,7 +1,7 @@
 # reading-code-of-swoole-src
 swoole 源码阅读
 
-# 8/25~9/12 update
+# 8/25~9/16 update
  1.  php-wrapper.h 包裹宏定义分析。
  2.  php_swoole.h 函数定义等分析。
  3.  swoole.c  函数定义，这个文件中主要定义class ，执行初始化工作。
