@@ -141,22 +141,24 @@ int swStream_send(swStream *stream, char *data, size_t length)
 int swStream_recv_blocking(int fd, void *__buf, size_t __len)
 {
     int tmp = 0;
+    //读出长度
     int ret = swSocket_recv_blocking(fd, &tmp, sizeof(tmp), MSG_WAITALL);
 
     if (ret <= 0)
     {
         return SW_CLOSE;
     }
-    int length = ntohl(tmp);
+    int length = ntohl(tmp);//网络字节序转化
     if (length <= 0)
     {
         return SW_CLOSE;
     }
-    else if (length > __len)
+    else if (length > __len)//传过来的size > 65536
     {
         return SW_CLOSE;
     }
-
+    //根据读出的length 取得数据放到__buf中
+    //MSG_WAITALL参数是一直读取到n个字节
     ret = swSocket_recv_blocking(fd, __buf, length, MSG_WAITALL);
     if (ret <= 0)
     {

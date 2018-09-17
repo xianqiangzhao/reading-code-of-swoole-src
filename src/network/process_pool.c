@@ -175,13 +175,13 @@ int swProcessPool_start(swProcessPool *pool)
     int i;
     pool->started = 1;
     pool->run_worker_num = pool->worker_num;
-
+    //启动pool->worker_num个进程
     for (i = 0; i < pool->worker_num; i++)
     {
         pool->workers[i].pool = pool;
         pool->workers[i].id = pool->start_id + i;
         pool->workers[i].type = pool->type;
-
+        //进程进入
         if (swProcessPool_spawn(pool, &(pool->workers[i])) < 0)
         {
             return SW_ERR;
@@ -211,6 +211,7 @@ static sw_inline int swProcessPool_schedule(swProcessPool *pool)
     return target_worker_id;
 }
 
+//向对端写入数据
 int swProcessPool_response(swProcessPool *pool, char *data, int length)
 {
     if (pool->stream == NULL || pool->stream->last_connection == 0 || pool->stream->response_buffer == NULL)
@@ -346,6 +347,7 @@ void swProcessPool_shutdown(swProcessPool *pool)
     pool->started = 0;
 }
 
+//进程创建
 pid_t swProcessPool_spawn(swProcessPool *pool, swWorker *worker)
 {
     pid_t pid = fork();
@@ -358,14 +360,15 @@ pid_t swProcessPool_spawn(swProcessPool *pool, swWorker *worker)
         /**
          * Process start
          */
+        //pool->onWorkerStart = php_swoole_process_pool_onWorkerStart
         if (pool->onWorkerStart != NULL)
         {
-            pool->onWorkerStart(pool, worker->id);
+            pool->onWorkerStart(pool, worker->id); //执行onwokerstart 回调函数
         }
         /**
          * Process main loop
          */
-        if (pool->main_loop)
+        if (pool->main_loop)//swProcessPool_worker_loop or swProcessPool_worker_loop_ex??
         {
             ret_code = pool->main_loop(pool, worker);
         }
@@ -374,7 +377,7 @@ pid_t swProcessPool_spawn(swProcessPool *pool, swWorker *worker)
          */
         if (pool->onWorkerStop != NULL)
         {
-            pool->onWorkerStop(pool, worker->id);
+            pool->onWorkerStop(pool, worker->id);//php_swoole_process_pool_onWorkerStop
         }
         exit(ret_code);
         break;
@@ -453,7 +456,7 @@ static int swProcessPool_worker_loop(swProcessPool *pool, swWorker *worker)
                 break;
             }
         }
-        else if (pool->use_socket)
+        else if (pool->use_socket) //socket 方式
         {
             int fd = accept(pool->stream->socket, NULL, NULL);
             if (fd < 0)
@@ -535,7 +538,7 @@ static int swProcessPool_worker_loop(swProcessPool *pool, swWorker *worker)
 
 int swProcessPool_set_protocol(swProcessPool *pool, int task_protocol, uint32_t max_packet_size)
 {
-    if (task_protocol)
+    if (task_protocol) //task 时main_loop = swProcessPool_worker_loop 会调用ontask
     {
         pool->main_loop = swProcessPool_worker_loop;
     }
@@ -548,7 +551,7 @@ int swProcessPool_set_protocol(swProcessPool *pool, int task_protocol, uint32_t 
             return SW_ERR;
         }
         if (pool->stream)
-        {
+        {   //写端SW_BUFFER_SIZE_STD = 8192
             pool->stream->response_buffer = swString_new(SW_BUFFER_SIZE_STD);
             if (pool->stream->response_buffer == NULL)
             {
@@ -563,6 +566,7 @@ int swProcessPool_set_protocol(swProcessPool *pool, int task_protocol, uint32_t 
     return SW_OK;
 }
 
+//process pool 的worker loop 
 static int swProcessPool_worker_loop_ex(swProcessPool *pool, swWorker *worker)
 {
     int n;
@@ -571,7 +575,7 @@ static int swProcessPool_worker_loop_ex(swProcessPool *pool, swWorker *worker)
     swQueue_data *outbuf = (swQueue_data *) pool->packet_buffer;
     outbuf->mtype = 0;
 
-    while (SwooleG.running > 0)
+    while (SwooleG.running > 0)//swoole_init 时 SwooleG.running 设定为1
     {
         /**
          * fetch task
@@ -611,7 +615,7 @@ static int swProcessPool_worker_loop_ex(swProcessPool *pool, swWorker *worker)
             {
                 goto _close;
             }
-            else if (n > pool->max_packet_size)
+            else if (n > pool->max_packet_size)//size 大于 1024*1024*2
             {
                 goto _close;
             }
@@ -646,7 +650,7 @@ static int swProcessPool_worker_loop_ex(swProcessPool *pool, swWorker *worker)
             continue;
         }
 
-        pool->onMessage(pool, data, n);
+        pool->onMessage(pool, data, n);//执行 onMessage 回调函数，数据是data
 
         if (pool->use_socket && pool->stream->last_connection > 0)
         {

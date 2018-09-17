@@ -16,6 +16,7 @@
 
 #include "swoole.h"
 
+//创建 string
 swString *swString_new(size_t size)
 {
     swString *str = sw_malloc(sizeof(swString));
@@ -78,6 +79,7 @@ swString *swString_dup(const char *src_str, int length)
     return str;
 }
 
+
 int swString_append(swString *str, swString *append_str)
 {
     int new_size = str->length + append_str->length;
@@ -111,7 +113,7 @@ int swString_append_int(swString *str, int value)
     str->length += s_len;
     return SW_OK;
 }
-
+//append_str 的数据增加到 str 中
 int swString_append_ptr(swString *str, char *append_str, int length)
 {
     int new_size = str->length + length;
@@ -168,7 +170,7 @@ int swString_write_ptr(swString *str, off_t offset, char *write_str, int length)
 
     return SW_OK;
 }
-
+//string 空间扩容
 int swString_extend(swString *str, size_t new_size)
 {
     assert(new_size > str->size);

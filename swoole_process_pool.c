@@ -245,7 +245,8 @@ static PHP_METHOD(swoole_process_pool, __construct)
     }
 
     if (ipc_type > 0)
-    {
+    {   //SW_BUFFER_INPUT_SIZE 1024*1024*2
+        //pool->main_loop = 
         if (swProcessPool_set_protocol(pool, 0, SW_BUFFER_INPUT_SIZE) < 0)
         {
             zend_throw_exception_ex(swoole_exception_class_entry_ptr, errno TSRMLS_CC, "failed to create process pool");
@@ -375,7 +376,7 @@ static PHP_METHOD(swoole_process_pool, listen)
     }
     SW_CHECK_RETURN(ret);
 }
-
+//向对端写入数据
 static PHP_METHOD(swoole_process_pool, write)
 {
     char *data;
@@ -442,6 +443,7 @@ static PHP_METHOD(swoole_process_pool, start)
     swProcessPool_shutdown(pool);
 }
 
+//析构函数
 static PHP_METHOD(swoole_process_pool, __destruct)
 {
     SW_PREVENT_USER_DESTRUCT;
