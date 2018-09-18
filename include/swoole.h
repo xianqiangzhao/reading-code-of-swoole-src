@@ -678,6 +678,9 @@ static sw_inline char *swoole_strlchr(char *p, char *last, char c)
     return NULL;
 }
 
+//page 对齐
+//比如申请 size = 100 pagesize=5   申请大小 =  100+ (5-0) 
+// pagesize = 3      申请大小 =  100+ (3-1) = 102
 static sw_inline size_t swoole_size_align(size_t size, int pagesize)
 {
     return size + (pagesize - (size % pagesize));

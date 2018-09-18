@@ -86,6 +86,7 @@ void swSocket_clean(int fd)
 /**
  * Wait socket can read or write.
  */
+//等待直到读or 可写
 int swSocket_wait(int fd, int timeout_ms, int events)
 {
     struct pollfd event;

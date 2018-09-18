@@ -79,7 +79,7 @@ swSignalHander swSignal_set(int sig, swSignalHander func, int restart, int mask)
     act.sa_handler = func;//设置信号处理函数
     if (mask)
     {   //specifies a mask of signals which should be blocked
-        //也就是信号发生时，进入信号处理程序中，这时要阻塞的信号
+        //也就是信号发生时，进入信号处理程序中，这时要阻塞的信号 默认不阻塞
         sigfillset(&act.sa_mask);
     }
     else
@@ -123,6 +123,7 @@ void swSignal_add(int signo, swSignalHander func)
     }
 }
 
+//swSignal_set 设定的信号绑定函数
 static void swSignal_async_handler(int signo)
 {
     if (SwooleG.main_reactor)
@@ -132,7 +133,7 @@ static void swSignal_async_handler(int signo)
     else
     {
         //discard signal
-        if (_lock)
+        if (_lock)//_lock = 1 时丢弃，因为有正在处理的信号回调函数
         {
             return;
         }

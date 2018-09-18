@@ -189,6 +189,7 @@ static void php_swoole_process_pool_onWorkerStop(swProcessPool *pool, int worker
     }
 }
 
+//信号处理
 static void php_swoole_process_pool_signal_hanlder(int sig)
 {
     switch (sig)
@@ -413,8 +414,11 @@ static PHP_METHOD(swoole_process_pool, start)
     process_pool_property *pp = swoole_get_property(getThis(), 0);
 
     SwooleG.use_signalfd = 0;
-
+    //信号绑定，非signalfd,直接调用swSignal_set->sigaction 方式绑定信号
     swSignal_add(SIGTERM, php_swoole_process_pool_signal_hanlder);
+    //这个版本少了 下面的信号绑定
+    swSignal_add(SIGUSR1, php_swoole_process_pool_signal_hanlder);
+    swSignal_add(SIGUSR2, php_swoole_process_pool_signal_hanlder);
 
     if (pool->ipc_mode > SW_IPC_NONE)
     {
@@ -431,15 +435,16 @@ static PHP_METHOD(swoole_process_pool, start)
 
     pool->onWorkerStart = php_swoole_process_pool_onWorkerStart;
     pool->onWorkerStop = php_swoole_process_pool_onWorkerStop;
-
+    //process 启动
     if (swProcessPool_start(pool) < 0)
     {
         RETURN_FALSE;
     }
 
     current_pool = pool;
-
+    //进程管理loop
     swProcessPool_wait(pool);
+    //shutdown
     swProcessPool_shutdown(pool);
 }
 
@@ -453,15 +458,15 @@ static PHP_METHOD(swoole_process_pool, __destruct)
     efree(pool);
 
     process_pool_property *pp = swoole_get_property(getThis(), 0);
-    if (pp->onWorkerStart)
+    if (pp->onWorkerStart)//回调函数释放
     {
         sw_zval_ptr_dtor(&pp->onWorkerStart);
     }
-    if (pp->onMessage)
+    if (pp->onMessage)//回调函数释放
     {
         sw_zval_ptr_dtor(&pp->onMessage);
     }
-    if (pp->onWorkerStop)
+    if (pp->onWorkerStop)//回调函数释放
     {
         sw_zval_ptr_dtor(&pp->onWorkerStop);
     }

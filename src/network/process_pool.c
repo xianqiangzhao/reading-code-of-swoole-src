@@ -181,7 +181,7 @@ int swProcessPool_start(swProcessPool *pool)
         pool->workers[i].pool = pool;
         pool->workers[i].id = pool->start_id + i;
         pool->workers[i].type = pool->type;
-        //进程进入
+        //进程创建，子进程进入回调onworkerstart ,如果有main_loop(即监听socket )的话就会进入 accept 等待。
         if (swProcessPool_spawn(pool, &(pool->workers[i])) < 0)
         {
             return SW_ERR;
@@ -544,7 +544,7 @@ int swProcessPool_set_protocol(swProcessPool *pool, int task_protocol, uint32_t 
     }
     else
     {
-        pool->packet_buffer = sw_malloc(max_packet_size);
+        pool->packet_buffer = sw_malloc(max_packet_size);//1024×1024×2 = 2M
         if (pool->packet_buffer == NULL)
         {
             swSysError("malloc(%d) failed.", max_packet_size);
@@ -610,7 +610,7 @@ static int swProcessPool_worker_loop_ex(swProcessPool *pool, swWorker *worker)
             {
                 goto _close;
             }
-            n = ntohl(tmp);
+            n = ntohl(tmp);//n 是对端发送过来的数据size
             if (n <= 0)
             {
                 goto _close;
@@ -686,6 +686,7 @@ int swProcessPool_add_worker(swProcessPool *pool, swWorker *worker)
     return SW_OK;
 }
 
+//主进程 process wait  等待子进程退出信号
 int swProcessPool_wait(swProcessPool *pool)
 {
     int pid, new_pid;
@@ -789,6 +790,7 @@ int swProcessPool_wait(swProcessPool *pool)
     return SW_OK;
 }
 
+//释放 process
 static void swProcessPool_free(swProcessPool *pool)
 {
     int i;
@@ -799,7 +801,7 @@ static void swProcessPool_free(swProcessPool *pool)
         for (i = 0; i < pool->worker_num; i++)
         {
             _pipe = &pool->pipes[i];
-            _pipe->close(_pipe);
+            _pipe->close(_pipe);//管道关闭
         }
         sw_free(pool->pipes);
     }
@@ -818,18 +820,18 @@ static void swProcessPool_free(swProcessPool *pool)
         }
         if (pool->stream->socket)
         {
-            close(pool->stream->socket);
+            close(pool->stream->socket);//close socket 描述符
         }
         if (pool->stream->response_buffer)
         {
-            swString_free(pool->stream->response_buffer);
+            swString_free(pool->stream->response_buffer);//接收数据端关闭
         }
         sw_free(pool->stream);
     }
 
     if (pool->map)
     {
-        swHashMap_free(pool->map);
+        swHashMap_free(pool->map);//hashmap 关闭
     }
 }
 
