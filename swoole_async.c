@@ -14,6 +14,8 @@
   +----------------------------------------------------------------------+
 */
 
+//这个异步IO听说不维护。因为AIO过于复杂，所以也不解析了。
+
 #include "php_swoole.h"
 #include "php_streams.h"
 #include "php_network.h"

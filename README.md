@@ -1,7 +1,7 @@
 # reading-code-of-swoole-src
 swoole 源码阅读
 
-# 8/25~9/16 update
+# 8/25~9/20 update
  1.  php-wrapper.h 包裹宏定义分析。
  2.  php_swoole.h 函数定义等分析。
  3.  swoole.c  函数定义，这个文件中主要定义class ，执行初始化工作。
@@ -12,5 +12,8 @@ swoole 源码阅读
  8.  swoole_lock.c 锁，用于解决进程或线程间对资源的竞争。
  9.  swoole_mmap.c 内存映射方式读写文件。
  10. src\memory\shared_memory.c 内存映射底层实现。
- 11. swoole_process 进程管理。
+ 11. swoole_process.c 进程管理。
  12. signal.c epoll.c 信号注册，epoll事件循环。
+ 13. swoole_process_pool.c 进程池管理。
+ 14. swoole_event.c 事件管理。
+

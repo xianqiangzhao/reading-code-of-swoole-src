@@ -16,6 +16,22 @@
  +----------------------------------------------------------------------+
  */
 
+//EventLoop
+//swoole_event class 的add,del 等方法的实体就是本文件定义的函数
+/* swoole.c
+static const zend_function_entry swoole_event_methods[] =
+{
+    ZEND_FENTRY(add, ZEND_FN(swoole_event_add), arginfo_swoole_event_add, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+    ZEND_FENTRY(del, ZEND_FN(swoole_event_del), arginfo_swoole_event_del, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+    ZEND_FENTRY(set, ZEND_FN(swoole_event_set), arginfo_swoole_event_set, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+    ZEND_FENTRY(exit, ZEND_FN(swoole_event_exit), arginfo_swoole_void, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+    ZEND_FENTRY(write, ZEND_FN(swoole_event_write), arginfo_swoole_event_write, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+    ZEND_FENTRY(wait, ZEND_FN(swoole_event_wait), arginfo_swoole_void, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+    ZEND_FENTRY(defer, ZEND_FN(swoole_event_defer), arginfo_swoole_event_defer, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+    ZEND_FENTRY(cycle, ZEND_FN(swoole_event_cycle), arginfo_swoole_event_cycle, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+    PHP_FE_END
+};*/
+
 #include "php_swoole.h"
 #ifdef SW_COROUTINE
 #include "swoole_coroutine.h"
@@ -305,6 +321,7 @@ void php_swoole_event_wait()
     }
 }
 
+//从资源类型,对象（process ，client）取得描述符
 int swoole_convert_to_fd(zval *zfd TSRMLS_DC)
 {
     php_stream *stream;
@@ -355,11 +372,11 @@ int swoole_convert_to_fd(zval *zfd TSRMLS_DC)
         zval *zsock = NULL;
         if (instanceof_function(Z_OBJCE_P(zfd), swoole_client_class_entry_ptr TSRMLS_CC))
         {
-            zsock = sw_zend_read_property(Z_OBJCE_P(zfd), zfd, SW_STRL("sock")-1, 0 TSRMLS_CC);
+            zsock = sw_zend_read_property(Z_OBJCE_P(zfd), zfd, SW_STRL("sock")-1, 0 TSRMLS_CC);//client 打开的描述符
         }
-        else if (instanceof_function(Z_OBJCE_P(zfd), swoole_process_class_entry_ptr TSRMLS_CC))
+        else if (instanceof_function(Z_OBJCE_P(zfd), swoole_process_class_entry_ptr TSRMLS_CC)) //process
         {
-            zsock = sw_zend_read_property(Z_OBJCE_P(zfd), zfd, SW_STRL("pipe")-1, 0 TSRMLS_CC);
+            zsock = sw_zend_read_property(Z_OBJCE_P(zfd), zfd, SW_STRL("pipe")-1, 0 TSRMLS_CC); //取得管道描述符
         }
         if (zsock == NULL || ZVAL_IS_NULL(zsock))
         {
@@ -445,6 +462,16 @@ php_socket* swoole_convert_to_socket(int sock)
 }
 #endif
 
+//将一个socket加入到底层的reactor事件监听中。此函数可以用在Server或Client模式下。
+//使用举例
+/*
+<?php
+swoole_event_add(STDIN, function($fp) { //当终端可读时 执行回调函数，不可读时进入epoll_wait
+    echo "STDIN: ".fread($fp, 8192);
+});
+
+*/
+
 PHP_FUNCTION(swoole_event_add)
 {
     zval *cb_read = NULL;
@@ -452,9 +479,10 @@ PHP_FUNCTION(swoole_event_add)
     zval *zfd;
     char *func_name = NULL;
     long event_flag = 0;
-
+    //zfd 文件描述符或资源 ，cb_read可读事件回调函数 cb_write可写事件回调函数
+    //event_flag 为事件类型的掩码 SWOOLE_EVENT_READ | SWOOLE_EVENT_WRITE
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|zzl", &zfd, &cb_read, &cb_write, &event_flag) == FAILURE)
-    {
+    { 
         return;
     }
 
@@ -463,7 +491,7 @@ PHP_FUNCTION(swoole_event_add)
         swoole_php_fatal_error(E_WARNING, "no read or write event callback.");
         RETURN_FALSE;
     }
-
+    //取得描述符
     int socket_fd = swoole_convert_to_fd(zfd TSRMLS_CC);
     if (socket_fd < 0)
     {
@@ -476,13 +504,29 @@ PHP_FUNCTION(swoole_event_add)
         RETURN_FALSE;
     }
 
+/*
+
+typedef struct
+{
+    struct
+    {
+        zval cb_read;
+        zval cb_write;
+        zval socket;
+    } stack;
+    zval *cb_read;
+    zval *cb_write;
+    zval *socket;//描述符
+} php_reactor_fd;
+*/
     php_reactor_fd *reactor_fd = emalloc(sizeof(php_reactor_fd));
     reactor_fd->socket = zfd;
-    sw_copy_to_stack(reactor_fd->socket, reactor_fd->stack.socket);
+    sw_copy_to_stack(reactor_fd->socket, reactor_fd->stack.socket);//a copy to b 
     sw_zval_add_ref(&reactor_fd->socket);
 
     if (cb_read!= NULL && !ZVAL_IS_NULL(cb_read))
     {
+        //判断是否可以回调
         if (!sw_zend_is_callable(cb_read, 0, &func_name TSRMLS_CC))
         {
             swoole_php_fatal_error(E_ERROR, "Function '%s' is not callable", func_name);
