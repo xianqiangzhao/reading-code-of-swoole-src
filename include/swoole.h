@@ -565,7 +565,7 @@ typedef struct _swConnection
     /**
      * link any thing, for kernel, do not use with application.
      */
-    void *object;
+    void *object; //事件处理 handle 
 
     /**
      * input buffer

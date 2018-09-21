@@ -818,7 +818,7 @@ void php_swoole_client_check_setting(swClient *cli, zval *zset TSRMLS_DC)
 }
 
 //注册 shutdown 函数 
-//函数名时 function
+//函数名是 function，也就是request shutown 要运行 function 
 void php_swoole_at_shutdown(char *function)
 {
     php_shutdown_function_entry shutdown_function_entry;

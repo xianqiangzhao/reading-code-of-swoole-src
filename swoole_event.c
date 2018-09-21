@@ -215,7 +215,7 @@ static void php_swoole_event_onEndCallback(void *_cb)
 
 void php_swoole_check_reactor()
 {
-    if (likely(SwooleWG.reactor_init))
+    if (likely(SwooleWG.reactor_init)) //第二次进来的话就 return 出去
     {
         return;
     }
@@ -526,7 +526,7 @@ typedef struct
 
     if (cb_read!= NULL && !ZVAL_IS_NULL(cb_read))
     {
-        //判断是否可以回调
+        //判断读参数是否可以回调
         if (!sw_zend_is_callable(cb_read, 0, &func_name TSRMLS_CC))
         {
             swoole_php_fatal_error(E_ERROR, "Function '%s' is not callable", func_name);
@@ -535,8 +535,8 @@ typedef struct
         }
         efree(func_name);
         reactor_fd->cb_read = cb_read;
-        sw_zval_add_ref(&cb_read);
-        sw_copy_to_stack(reactor_fd->cb_read, reactor_fd->stack.cb_read);
+        sw_zval_add_ref(&cb_read);//ref 增加引用，因下面有copy ，要不函数结束php mm 会回收该变量了
+        sw_copy_to_stack(reactor_fd->cb_read, reactor_fd->stack.cb_read);//copy 第一个参数指针指向的内容 to 第二个参数中
     }
     else
     {
@@ -544,7 +544,7 @@ typedef struct
     }
 
     if (cb_write!= NULL && !ZVAL_IS_NULL(cb_write))
-    {
+    {   //判断写参数是否可以回调
         if (!sw_zend_is_callable(cb_write, 0, &func_name TSRMLS_CC))
         {
             swoole_php_fatal_error(E_ERROR, "Function '%s' is not callable", func_name);
@@ -560,24 +560,28 @@ typedef struct
     {
         reactor_fd->cb_write = NULL;
     }
-
+    //建立epoll ,设定读事件处理函数,注册 shutdown 时事件等待函数。
     php_swoole_check_reactor();
+    //设置监听的描述符为非阻塞
     swSetNonBlock(socket_fd); //must be nonblock
-
+    //向epoll 中增加感兴趣的事件
+    //实体是 swReactorEpoll_add 函数
     if (SwooleG.main_reactor->add(SwooleG.main_reactor, socket_fd, SW_FD_USER | event_flag) < 0)
     {
         swoole_php_fatal_error(E_WARNING, "swoole_event_add failed.");
         RETURN_FALSE;
     }
-
+    // socket 是  reactor->socket_array 中分配的，初期化时 reactor->socket_array = swArray_new(1024, sizeof(swConnection));
+    //这里的意思是返回 reactor->socket_array 应有的位置，并把回调函数等相关数据放进去，event_set ,del 时会用到
     swConnection *socket = swReactor_get(SwooleG.main_reactor, socket_fd);
-    socket->object = reactor_fd;
-    socket->active = 1;
-    socket->nonblock = 1;
+    socket->object = reactor_fd; //回调函数结构体
+    socket->active = 1;//是否有效
+    socket->nonblock = 1;//非阻塞
 
     RETURN_LONG(socket_fd);
 }
 
+//向指定描述符写数据
 PHP_FUNCTION(swoole_event_write)
 {
     zval *zfd;
@@ -603,6 +607,7 @@ PHP_FUNCTION(swoole_event_write)
     }
 
     php_swoole_check_reactor();
+    // 调用  swReactor_write 发送数据
     if (SwooleG.main_reactor->write(SwooleG.main_reactor, socket_fd, data, len) < 0)
     {
         RETURN_FALSE;

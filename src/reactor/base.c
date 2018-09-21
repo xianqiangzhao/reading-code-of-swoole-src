@@ -278,6 +278,7 @@ int swReactor_close(swReactor *reactor, int fd)
     return close(fd);
 }
 
+//发送数据到 fd
 int swReactor_write(swReactor *reactor, int fd, void *buf, int n)
 {
     int ret;
@@ -291,22 +292,24 @@ int swReactor_write(swReactor *reactor, int fd, void *buf, int n)
 
     if (socket->buffer_size == 0)
     {
+        // 默认 8M  buffer_output_size用于设置单次最大发送长度。socket_buffer_size用于设置客户端连接最大允许占用内存数量
         socket->buffer_size = SwooleG.socket_buffer_size;
+
     }
 
-    if (socket->nonblock == 0)
+    if (socket->nonblock == 0) //如是非阻塞，设置为非阻塞
     {
         swoole_fcntl_set_option(fd, 1, -1);
         socket->nonblock = 1;
     }
 
-    if (n > socket->buffer_size)
+    if (n > socket->buffer_size) //发送数据大小 大于缓存内存数量就报错
     {
         swoole_error_log(SW_LOG_WARNING, SW_ERROR_PACKAGE_LENGTH_TOO_LARGE, "data is too large, cannot exceed buffer size.");
         return SW_ERR;
     }
 
-    if (swBuffer_empty(buffer))
+    if (swBuffer_empty(buffer)) //如果buffer 为空，第一次进来是空
     {
         if (socket->ssl_send)
         {
@@ -314,7 +317,7 @@ int swReactor_write(swReactor *reactor, int fd, void *buf, int n)
         }
 
         do_send:
-        ret = swConnection_send(socket, buf, n, 0);
+        ret = swConnection_send(socket, buf, n, 0);//发送数据
 
         if (ret > 0)
         {
@@ -329,7 +332,7 @@ int swReactor_write(swReactor *reactor, int fd, void *buf, int n)
                 goto do_buffer;
             }
         }
-        else if (swConnection_error(errno) == SW_WAIT)
+        else if (swConnection_error(errno) == SW_WAIT)//发送没有成功返回等待错误的话
         {
             do_buffer:
             if (!socket->out_buffer)
