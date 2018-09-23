@@ -38,20 +38,23 @@ swBuffer* swBuffer_new(int chunk_size)
 /**
  * create new chunk
  */
+//建立chunk 
 swBuffer_chunk *swBuffer_new_chunk(swBuffer *buffer, uint32_t type, uint32_t size)
-{
+{   
+    //申请一个buffer 结构
     swBuffer_chunk *chunk = sw_malloc(sizeof(swBuffer_chunk));
     if (chunk == NULL)
     {
         swWarn("malloc for chunk failed. Error: %s[%d]", strerror(errno), errno);
         return NULL;
     }
-
+    //置0
     bzero(chunk, sizeof(swBuffer_chunk));
 
     //require alloc memory
+    //分配 size 的内存给chunk->store.ptr
     if (type == SW_CHUNK_DATA && size > 0)
-    {
+    {   
         void *buf = sw_malloc(size);
         if (buf == NULL)
         {
@@ -64,8 +67,9 @@ swBuffer_chunk *swBuffer_new_chunk(swBuffer *buffer, uint32_t type, uint32_t siz
     }
 
     chunk->type = type;
-    buffer->chunk_num ++;
+    buffer->chunk_num ++; //buffer 中的chunk 个数增加
 
+    //把 新申请的chunk 挂载到buffer 链表中
     if (buffer->head == NULL)
     {
         buffer->tail = buffer->head = chunk;
@@ -76,7 +80,7 @@ swBuffer_chunk *swBuffer_new_chunk(swBuffer *buffer, uint32_t type, uint32_t siz
         buffer->tail = chunk;
     }
 
-    return chunk;
+    return chunk;//返回新建立的chunk
 }
 
 /**
@@ -132,18 +136,40 @@ int swBuffer_free(swBuffer *buffer)
 /**
  * append to buffer queue
  */
+//向 buffer 缓存中增加数据
 int swBuffer_append(swBuffer *buffer, void *data, uint32_t size)
-{
+{   
+
+    /*
+    typedef struct _swBuffer_chunk
+    {
+        uint32_t type;
+        uint32_t length;
+        uint32_t offset;
+        union
+        {
+            void *ptr;
+            struct
+            {
+                uint32_t val1;
+                uint32_t val2;
+            } data;
+        } store;
+        uint32_t size;
+        void (*destroy)(struct _swBuffer_chunk *chunk);
+        struct _swBuffer_chunk *next;
+    } swBuffer_chunk;
+    */
     swBuffer_chunk *chunk = swBuffer_new_chunk(buffer, SW_CHUNK_DATA, size);
     if (chunk == NULL)
     {
         return SW_ERR;
     }
 
-    buffer->length += size;
+    buffer->length += size;//buffer 总size 增加
     chunk->length = size;
 
-    memcpy(chunk->store.ptr, data, size);
+    memcpy(chunk->store.ptr, data, size);//把数据放到 chunk->store.ptr
 
     swTraceLog(SW_TRACE_BUFFER, "chunk_n=%d|size=%d|chunk_len=%d|chunk=%p", buffer->chunk_num, size,
             chunk->length, chunk);

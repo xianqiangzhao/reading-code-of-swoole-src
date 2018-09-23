@@ -202,12 +202,13 @@ static sw_inline ssize_t swConnection_recv(swConnection *conn, void *__buf, size
 /**
  * Send data to connection
  */
+//发送数据到对端
 static sw_inline ssize_t swConnection_send(swConnection *conn, void *__buf, size_t __n, int __flags)
 {
     ssize_t retval;
     _send:
 #ifdef SW_USE_OPENSSL
-    if (conn->ssl)
+    if (conn->ssl)//ssl 发送数据
     {
         retval = swSSL_send(conn, __buf, __n);
     }
@@ -219,13 +220,18 @@ static sw_inline ssize_t swConnection_send(swConnection *conn, void *__buf, size
     retval = send(conn->fd, __buf, __n, __flags);
 #endif
 
-    if (retval < 0 && errno == EINTR)
+   /*EINTR错误的产生：当阻塞于某个慢系统调用的一个进程捕获某个信号且相应信号处理函数返回时，
+    该系统调用可能返回一个EINTR错误。例如：在socket服务器端，设置了信号捕获机制，
+    有子进程，当在父进程阻塞于慢系统调用时由父进程捕获到了一个有效信号时，
+    内核会致使accept返回一个EINTR错误(被中断的系统调用)
+    */ 
+     if (retval < 0 && errno == EINTR)//发送数据被系统中断的话，再次发送
     {
         goto _send;
     }
     else
     {
-        goto _return;
+        goto _return;//否则返回发送成功size
     }
 
     _return:
@@ -288,8 +294,8 @@ static sw_inline int swConnection_error(int err)
     case EHOSTDOWN:
     case EHOSTUNREACH:
     case SW_ERROR_SSL_BAD_CLIENT:
-		return SW_CLOSE;
-	case EAGAIN:
+		return SW_CLOSE;//返回close
+	case EAGAIN://重试
 #ifdef HAVE_KQUEUE
 	case ENOBUFS:
 #endif

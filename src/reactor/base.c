@@ -317,38 +317,45 @@ int swReactor_write(swReactor *reactor, int fd, void *buf, int n)
         }
 
         do_send:
-        ret = swConnection_send(socket, buf, n, 0);//发送数据
+        ret = swConnection_send(socket, buf, n, 0);//发送数据 最后一个参数0意味着非阻塞发送
 
-        if (ret > 0)
+        if (ret > 0)//发送数据大于0
         {
-            if (n == ret)
+            if (n == ret) //一次发送完毕数据，就返回发送的size并退出
             {
                 return ret;
             }
-            else
+            else//一次发送没有完全把buf 中的数据发送完毕，buf 位置偏移， n 设置为剩余的数据size
             {
                 buf += ret;
                 n -= ret;
-                goto do_buffer;
+                goto do_buffer; //跳转到buffer 发送处理中
             }
         }
-        else if (swConnection_error(errno) == SW_WAIT)//发送没有成功返回等待错误的话
+        else if (swConnection_error(errno) == SW_WAIT)//发送没有成功返回等待错误的话，把数据放到buffer中
         {
             do_buffer:
-            if (!socket->out_buffer)
+            if (!socket->out_buffer)//第一次out_buffer = null
             {
-                buffer = swBuffer_new(sizeof(swEventData));
+                buffer = swBuffer_new(sizeof(swEventData)); //申请buffer size = sizeof(swEventData)
                 if (!buffer)
                 {
                     swWarn("create worker buffer failed.");
                     return SW_ERR;
                 }
-                socket->out_buffer = buffer;
+                socket->out_buffer = buffer; //把新申请的buffer 赋值给socket->out_buffer 
             }
 
-            socket->events |= SW_EVENT_WRITE;
+            socket->events |= SW_EVENT_WRITE;//增加 write 事件
 
-            if (socket->events & SW_EVENT_READ)
+            /*
+                reactor->add = swReactorEpoll_add;
+                reactor->set = swReactorEpoll_set;
+                reactor->del = swReactorEpoll_del;
+                reactor->wait = swReactorEpoll_wait;
+                reactor->free = swReactorEpoll_free;
+            */
+            if (socket->events & SW_EVENT_READ) //原事件中有读事件的话，就重新set
             {
                 if (reactor->set(reactor, fd, socket->fdtype | socket->events) < 0)
                 {
@@ -356,7 +363,13 @@ int swReactor_write(swReactor *reactor, int fd, void *buf, int n)
                 }
             }
             else
-            {
+
+            {   
+                /*
+                没有读事件就增加write事件，相应handle 就是swReactor_onWrite 函数
+                定义在swoole_event.c 中
+                SwooleG.main_reactor->setHandle(SwooleG.main_reactor, SW_FD_WRITE, swReactor_onWrite);
+                */
                 if (reactor->add(reactor, fd, socket->fdtype | SW_EVENT_WRITE) < 0)
                 {
                     swSysError("reactor->add(%d, SW_EVENT_WRITE) failed.", fd);
@@ -365,34 +378,42 @@ int swReactor_write(swReactor *reactor, int fd, void *buf, int n)
 
             goto append_buffer;
         }
-        else if (errno == EINTR)
+        else if (errno == EINTR)//返回中断信号，在重试的情况，重新发送
         {
             goto do_send;
         }
-        else
+        else //其它的情况有错误
         {
             SwooleG.error = errno;
             return SW_ERR;
         }
     }
-    else
+    else //有缓冲数据时
     {
+        //buffer 中的数据size > socket 的buffer size（默认8M）的情况,就需要等待
         append_buffer: if (buffer->length > socket->buffer_size)
         {
-            if (socket->dontwait)
+            if (socket->dontwait) //不等待的话，报错
             {
                 SwooleG.error = SW_ERROR_OUTPUT_BUFFER_OVERFLOW;
                 return SW_ERR;
             }
             else
-            {
+            {   //output buffer overflow
                 swoole_error_log(SW_LOG_WARNING, SW_ERROR_OUTPUT_BUFFER_OVERFLOW, "socket#%d output buffer overflow.", fd);
+                /* 让出cpu
+                  http://man7.org/linux/man-pages/man2/sched_yield.2.html
+                   ched_yield() causes the calling thread to relinquish the CPU.  The
+                   thread is moved to the end of the queue for its static priority and a
+                   new thread gets to run.
+                */
                 swYield();
+                // SW_SOCKET_OVERFLOW_WAIT  100 
                 swSocket_wait(fd, SW_SOCKET_OVERFLOW_WAIT, SW_EVENT_WRITE);
             }
         }
 
-        if (swBuffer_append(buffer, buf, n) < 0)
+        if (swBuffer_append(buffer, buf, n) < 0)//第一次增加数据会进来，增加到buffer中
         {
             return SW_ERR;
         }
@@ -400,6 +421,7 @@ int swReactor_write(swReactor *reactor, int fd, void *buf, int n)
     return SW_OK;
 }
 
+//一次没有发送成功，还有数据在buffer 中时,epoll 中发现该描述符可写时，调用本函数
 int swReactor_onWrite(swReactor *reactor, swEvent *ev)
 {
     int ret;

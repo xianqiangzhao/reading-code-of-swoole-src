@@ -571,7 +571,7 @@ typedef struct
         swoole_php_fatal_error(E_WARNING, "swoole_event_add failed.");
         RETURN_FALSE;
     }
-    // socket 是  reactor->socket_array 中分配的，初期化时 reactor->socket_array = swArray_new(1024, sizeof(swConnection));
+    // socket 是  reactor->socket_array 中分配的，初期化时分配 reactor->socket_array = swArray_new(1024, sizeof(swConnection));
     //这里的意思是返回 reactor->socket_array 应有的位置，并把回调函数等相关数据放进去，event_set ,del 时会用到
     swConnection *socket = swReactor_get(SwooleG.main_reactor, socket_fd);
     socket->object = reactor_fd; //回调函数结构体
@@ -593,7 +593,7 @@ PHP_FUNCTION(swoole_event_write)
         return;
     }
 
-    if (len <= 0)
+    if (len <= 0)//data 为空报错
     {
         swoole_php_fatal_error(E_WARNING, "data empty.");
         RETURN_FALSE;
@@ -605,7 +605,7 @@ PHP_FUNCTION(swoole_event_write)
         swoole_php_fatal_error(E_WARNING, "unknow type.");
         RETURN_FALSE;
     }
-
+    //建立事件绑定
     php_swoole_check_reactor();
     // 调用  swReactor_write 发送数据
     if (SwooleG.main_reactor->write(SwooleG.main_reactor, socket_fd, data, len) < 0)
