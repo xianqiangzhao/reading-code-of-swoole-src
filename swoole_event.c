@@ -62,6 +62,7 @@ static int php_swoole_event_onError(swReactor *reactor, swEvent *event);
 static void php_swoole_event_onDefer(void *_cb);
 static void php_swoole_event_onEndCallback(void *_cb);
 
+//释放事件 callback
 static void free_event_callback(void* data)
 {
     php_reactor_fd *ev_set = (php_reactor_fd*) data;
@@ -90,6 +91,9 @@ static void free_callback(void* data)
     efree(cb);
 }
 
+//swoole_event_add 函数的回调函数
+//定义在  SwooleG.main_reactor->setHandle(SwooleG.main_reactor, SW_FD_USER | SW_EVENT_READ, php_swoole_event_onRead);
+//也就是当epoll 有可读事件时就调会调用该函数
 static int php_swoole_event_onRead(swReactor *reactor, swEvent *event)
 {
     zval *retval;
@@ -97,8 +101,8 @@ static int php_swoole_event_onRead(swReactor *reactor, swEvent *event)
     php_reactor_fd *fd = event->socket->object;
 
 
-    args[0] = &fd->socket;
-
+    args[0] = &fd->socket;//取得读的回调函数
+    //执行
     if (sw_call_user_function_ex(EG(function_table), NULL, fd->cb_read, &retval, 1, args, 0, NULL TSRMLS_CC) == FAILURE)
     {
         swoole_php_fatal_error(E_WARNING, "swoole_event: onRead handler error.");
@@ -115,7 +119,7 @@ static int php_swoole_event_onRead(swReactor *reactor, swEvent *event)
     }
     return SW_OK;
 }
-
+//同上，描述符可写时的回调函数
 static int php_swoole_event_onWrite(swReactor *reactor, swEvent *event)
 {
     zval *retval;
@@ -171,6 +175,7 @@ static int php_swoole_event_onError(swReactor *reactor, swEvent *event)
     return SW_OK;
 }
 
+//延期执行的回调函数swReactor_defer
 static void php_swoole_event_onDefer(void *_cb)
 {
     php_defer_callback *defer = _cb;
@@ -213,6 +218,7 @@ static void php_swoole_event_onEndCallback(void *_cb)
     }
 }
 
+//建立reactor
 void php_swoole_check_reactor()
 {
     if (likely(SwooleWG.reactor_init)) //第二次进来的话就 return 出去
@@ -607,7 +613,39 @@ PHP_FUNCTION(swoole_event_write)
     }
     //建立事件绑定
     php_swoole_check_reactor();
-    // 调用  swReactor_write 发送数据
+    // 调用  swReactor_write 发送数据 
+    // php_swoole_check_reactor->swReactor_create 中建立的绑定
+    /*
+    reactor->setHandle = swReactor_setHandle; 
+    reactor->onFinish = swReactor_onFinish;
+    reactor->onTimeout = swReactor_onTimeout;
+    reactor->write = swReactor_write;
+    reactor->defer = swReactor_defer;
+    reactor->close = swReactor_close;
+    
+    php_swoole_check_reactor 函数中建立的set 事件回调函数
+    增加事件 add 中有对应的事件类型，这样在 epoll_wait 中有事件触发时，swReactor_getHandle 取得对应的回调函数。
+    回调函数定义在Reactor结构体中
+    swReactor_handle handle[SW_MAX_FDTYPE];        //默认事件  SW_MAX_FDTYPE = 32
+    swReactor_handle write_handle[SW_MAX_FDTYPE];  //扩展事件1(一般为写事件)
+    swReactor_handle error_handle[SW_MAX_FDTYPE];  //扩展事件2(一般为错误事件,如socket关闭)
+
+    //设定读事件处理函数
+    SwooleG.main_reactor->setHandle(SwooleG.main_reactor, SW_FD_USER | SW_EVENT_READ, php_swoole_event_onRead);
+    //设定写事件处理函数
+    SwooleG.main_reactor->setHandle(SwooleG.main_reactor, SW_FD_USER | SW_EVENT_WRITE, php_swoole_event_onWrite);
+    //设定错误处理函数
+    SwooleG.main_reactor->setHandle(SwooleG.main_reactor, SW_FD_USER | SW_EVENT_ERROR, php_swoole_event_onError);
+    //写处理函数
+    SwooleG.main_reactor->setHandle(SwooleG.main_reactor, SW_FD_WRITE, swReactor_onWrite);
+
+    事件epoll绑定函数
+    reactor->add = swReactorEpoll_add;
+    reactor->set = swReactorEpoll_set;
+    reactor->del = swReactorEpoll_del;
+    reactor->wait = swReactorEpoll_wait;
+    reactor->free = swReactorEpoll_free;
+    */
     if (SwooleG.main_reactor->write(SwooleG.main_reactor, socket_fd, data, len) < 0)
     {
         RETURN_FALSE;
@@ -618,6 +656,8 @@ PHP_FUNCTION(swoole_event_write)
     }
 }
 
+//修改事件监听的回调函数和掩码
+//swoole_event_set只能替换回调函数，但并不能释放事件回调函数
 PHP_FUNCTION(swoole_event_set)
 {
     zval *cb_read = NULL;
@@ -645,14 +685,14 @@ PHP_FUNCTION(swoole_event_set)
     }
 
     swConnection *socket = swReactor_get(SwooleG.main_reactor, socket_fd);
-    if (!socket->active)
+    if (!socket->active) // 有效状态在swoole_event_add 中改变的
     {
         swoole_php_fatal_error(E_WARNING, "socket[%d] is not found in the reactor.", socket_fd);
         efree(func_name);
         RETURN_FALSE;
     }
 
-    php_reactor_fd *ev_set = socket->object;
+    php_reactor_fd *ev_set = socket->object;//取得回到函数设置对象
     if (cb_read != NULL && !ZVAL_IS_NULL(cb_read))
     {
         if (!sw_zend_is_callable(cb_read, 0, &func_name TSRMLS_CC))
@@ -665,7 +705,7 @@ PHP_FUNCTION(swoole_event_set)
         {
             if (ev_set->cb_read)
             {
-                sw_zval_ptr_dtor(&ev_set->cb_read);
+                sw_zval_ptr_dtor(&ev_set->cb_read);//old 的回调函数释放
             }
             ev_set->cb_read = cb_read;
             sw_zval_add_ref(&cb_read);
@@ -711,7 +751,7 @@ PHP_FUNCTION(swoole_event_set)
         swoole_php_fatal_error(E_WARNING, "swoole_event: no write callback.");
         RETURN_FALSE;
     }
-
+    //重新设定事件属性
     if (SwooleG.main_reactor->set(SwooleG.main_reactor, socket_fd, SW_FD_USER | event_flag) < 0)
     {
         swoole_php_fatal_error(E_WARNING, "swoole_event_set failed.");
@@ -721,6 +761,7 @@ PHP_FUNCTION(swoole_event_set)
     RETURN_TRUE;
 }
 
+//swoole_event_del函数用于从reactor中移除监听的socket
 PHP_FUNCTION(swoole_event_del)
 {
     zval *zfd;
@@ -744,17 +785,19 @@ PHP_FUNCTION(swoole_event_del)
     }
 
     swConnection *socket = swReactor_get(SwooleG.main_reactor, socket_fd);
-    if (socket->object)
+    if (socket->object)//取得回到函数设置对象
     {
+        //调用 swReactor_defer
         SwooleG.main_reactor->defer(SwooleG.main_reactor, free_event_callback, socket->object);
         socket->object = NULL;
     }
-
+    //删除事件描述符
     int ret = SwooleG.main_reactor->del(SwooleG.main_reactor, socket_fd);
     socket->active = 0;
     SW_CHECK_RETURN(ret);
 }
 
+//在下一个事件循环开始时执行函数
 PHP_FUNCTION(swoole_event_defer)
 {
     zval *callback;
@@ -778,9 +821,11 @@ PHP_FUNCTION(swoole_event_defer)
     defer->callback = &defer->_callback;
     memcpy(defer->callback, callback, sizeof(zval));
     sw_zval_add_ref(&callback);
+    //延期执行的回调函数swReactor_defer ，相关数据是defer
     SW_CHECK_RETURN(SwooleG.main_reactor->defer(SwooleG.main_reactor, php_swoole_event_onDefer, defer));
 }
 
+//定义事件循环周期执行函数。此函数会在每一轮事件循环结束时调用。
 PHP_FUNCTION(swoole_event_cycle)
 {
     if (!SwooleG.main_reactor)
@@ -828,7 +873,7 @@ PHP_FUNCTION(swoole_event_cycle)
     sw_zval_add_ref(&callback);
 
     if (before == 0)
-    {
+    {// EventLoop之后调用该函数
         if (SwooleG.main_reactor->idle_task.data != NULL)
         {
             SwooleG.main_reactor->defer(SwooleG.main_reactor, free_callback, SwooleG.main_reactor->idle_task.data);
@@ -838,7 +883,7 @@ PHP_FUNCTION(swoole_event_cycle)
         SwooleG.main_reactor->idle_task.data = cb;
     }
     else
-    {
+    {   // EventLoop之前调用该函数
         if (SwooleG.main_reactor->future_task.data != NULL)
         {
             SwooleG.main_reactor->defer(SwooleG.main_reactor, free_callback, SwooleG.main_reactor->future_task.data);
@@ -853,13 +898,14 @@ PHP_FUNCTION(swoole_event_cycle)
     RETURN_TRUE;
 }
 
+//退出事件轮询，此函数仅在Client程序中有效
 PHP_FUNCTION(swoole_event_exit)
 {
-    if (SwooleWG.in_client == 1)
+    if (SwooleWG.in_client == 1) //php_swoole_check_reactor 中设置为1
     {
         if (SwooleG.main_reactor)
         {
-            SwooleG.main_reactor->running = 0;
+            SwooleG.main_reactor->running = 0;//epoll_wait 中循环条件
         }
         SwooleG.running = 0;
     }
@@ -876,16 +922,17 @@ PHP_FUNCTION(swoole_event_wait)
     php_swoole_event_wait();
 }
 
+//仅执行一次reactor->wait操作
 PHP_FUNCTION(swoole_event_dispatch)
 {
     if (!SwooleG.main_reactor)
     {
         RETURN_FALSE;
     }
-    SwooleG.main_reactor->once = 1;
+    SwooleG.main_reactor->once = 1;//执行1次 flag
 
 #ifdef HAVE_SIGNALFD
-    if (SwooleG.main_reactor->check_signalfd)
+    if (SwooleG.main_reactor->check_signalfd) //这里为false
     {
         swSignalfd_setup(SwooleG.main_reactor);
     }
@@ -908,6 +955,7 @@ PHP_FUNCTION(swoole_event_dispatch)
     RETURN_TRUE;
 }
 
+//检测传入的$fd是否已加入了事件监听
 PHP_FUNCTION(swoole_event_isset)
 {
     if (!SwooleG.main_reactor)
@@ -935,7 +983,7 @@ PHP_FUNCTION(swoole_event_isset)
     {
         RETURN_FALSE;
     }
-    if (_socket->events & events)
+    if (_socket->events & events)//socket的事件类型在epoll add 的swReactor_add函数中增加了
     {
         RETURN_TRUE;
     }

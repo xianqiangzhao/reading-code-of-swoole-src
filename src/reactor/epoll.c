@@ -247,9 +247,9 @@ static int swReactorEpoll_wait(swReactor *reactor, struct timeval *timeo)
 
     while (reactor->running > 0) //事件模型启动flag
     {
-        if (reactor->onBegin != NULL)
+        if (reactor->onBegin != NULL)//swoole_event_cycle 增加的事件开始循环执行的回调函数
         {
-            reactor->onBegin(reactor);
+            reactor->onBegin(reactor); //onBegin = swReactor_onBegin
         }
         msec = reactor->timeout_msec;
         n = epoll_wait(epoll_fd, events, max_event_num, msec);//wait 事件发生
@@ -280,7 +280,7 @@ static int swReactorEpoll_wait(swReactor *reactor, struct timeval *timeo)
             //事件类型  events[i].data.u64 中存放  uint32_t fd ，uint32_t fdtype;
             //所以左移动32位就是fdtype
             event.type = events[i].data.u64 >> 32;
-            event.socket = swReactor_get(reactor, event.fd);
+            event.socket = swReactor_get(reactor, event.fd);//取得对应的描述符信息，事件类型，回调信息等。
 
             //read
             if ((events[i].events & EPOLLIN) && !event.socket->removed)
@@ -324,11 +324,11 @@ static int swReactorEpoll_wait(swReactor *reactor, struct timeval *timeo)
             }
         }
 
-        if (reactor->onFinish != NULL)
+        if (reactor->onFinish != NULL)//swoole_event_cycle 增加的事件循环结束后的回调函数
         {
-            reactor->onFinish(reactor);
+            reactor->onFinish(reactor); //onFinish = swReactor_onFinish
         }
-        if (reactor->once)
+        if (reactor->once)//如果是执行一次事件就跳出
         {
             break;
         }

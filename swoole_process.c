@@ -557,11 +557,12 @@ static PHP_METHOD(swoole_process, signal)
     /**
      * for swSignalfd_setup
      */
-    SwooleG.main_reactor->check_signalfd = 1;
+    SwooleG.main_reactor->check_signalfd = 1;//信号安装 flag
 
     //free the old callback
     if (signal_callback[signo])//删除老的信号处理函数
     {
+        //延迟删除
         SwooleG.main_reactor->defer(SwooleG.main_reactor, free_signal_callback, signal_callback[signo]);
     }
     signal_callback[signo] = callback;//设置信号回调函数
