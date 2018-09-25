@@ -92,7 +92,7 @@ static sw_inline swHashMap_node* swHashMap_node_each(swHashMap* hmap)
 }
 
 //hashmap 创建
-//向系统申请内存
+//向系统申请内存 bucket_num 桶个数
 swHashMap* swHashMap_new(uint32_t bucket_num, swHashMap_dtor dtor)
 {
     swHashMap *hmap = sw_malloc(sizeof(swHashMap)); //head

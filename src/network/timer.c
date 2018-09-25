@@ -20,6 +20,7 @@ static int swReactorTimer_init(long msec);
 static int swReactorTimer_set(swTimer *timer, long exec_msec);
 static swTimer_node* swTimer_add(swTimer *timer, int _msec, int interval, void *data, swTimerCallback callback);
 
+//把当前时间放到time中
 int swTimer_now(struct timeval *time)
 {
 #if defined(SW_USE_MONOTONIC_TIME) && defined(CLOCK_MONOTONIC)
@@ -53,6 +54,58 @@ static sw_inline int64_t swTimer_get_relative_msec()
     return msec1 + msec2;
 }
 
+//time 初期化
+/*
+
+struct _swTimer
+{
+     swHeap *heap;
+    swHashMap *map;
+    int num;
+    int use_pipe;
+    int lasttime;
+    int fd;
+    long _next_id;
+    long _current_id;
+    long _next_msec;
+    swPipe pipe;
+    struct timeval basetime; //当前时间
+    int (*set)(swTimer *timer, long exec_msec);
+    swTimer_node* (*add)(swTimer *timer, int _msec, int persistent, void *data, swTimerCallback callback);
+};
+typedef struct _swHeap
+{
+    uint32_t num;
+    uint32_t size;
+    uint8_t type;
+    swHeap_node **nodes;
+} swHeap;
+
+typedef struct swHeap_node
+{
+    uint64_t priority;
+    uint32_t position;
+    void *data;
+} swHeap_node;
+
+
+typedef struct
+{
+    struct swHashMap_node *root;
+    struct swHashMap_node *iterator;
+    swHashMap_dtor dtor;
+} swHashMap;
+
+
+typedef struct swHashMap_node
+{
+    uint64_t key_int;
+    char *key_str;
+    void *data;
+    UT_hash_handle hh;
+} swHashMap_node;
+
+*/
 int swTimer_init(long msec)
 {
     if (swTimer_now(&SwooleG.timer.basetime) < 0)
@@ -60,13 +113,13 @@ int swTimer_init(long msec)
         return SW_ERR;
     }
 
-
+    //最小堆
     SwooleG.timer.heap = swHeap_new(1024, SW_MIN_HEAP);
     if (!SwooleG.timer.heap)
     {
         return SW_ERR;
     }
-
+    //hashmap  SW_HASHMAP_INIT_BUCKET_N =32
     SwooleG.timer.map = swHashMap_new(SW_HASHMAP_INIT_BUCKET_N, NULL);
     if (!SwooleG.timer.map)
     {

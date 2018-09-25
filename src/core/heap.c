@@ -24,22 +24,24 @@
 static void swHeap_bubble_up(swHeap *heap, uint32_t i);
 static uint32_t swHeap_maxchild(swHeap *heap, uint32_t i);
 static void swHeap_percolate_down(swHeap *heap, uint32_t i);
-
+//创建最小堆 time 定时器设置时用
 swHeap *swHeap_new(size_t n, uint8_t type)
 {
+    //申请heap
     swHeap *heap = sw_malloc(sizeof(swHeap));
     if (!heap)
     {
         return NULL;
     }
+    //1024 + 1 个node void * 指针
     if (!(heap->nodes = sw_malloc((n + 1) * sizeof(void *))))
     {
         sw_free(heap);
         return NULL;
     }
-    heap->num = 1;
-    heap->size = (n + 1);
-    heap->type = type;
+    heap->num = 1;//个数
+    heap->size = (n + 1);//size
+    heap->type = type;//类型
     return heap;
 }
 

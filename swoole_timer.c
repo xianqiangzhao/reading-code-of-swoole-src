@@ -16,6 +16,7 @@
  +----------------------------------------------------------------------+
  */
 
+//基于事件的定时器
 #include "php_swoole.h"
 #ifdef SW_COROUTINE
 #include "swoole_coroutine.h"
@@ -41,6 +42,7 @@ typedef struct _swTimer_callback
 
 static int php_swoole_del_timer(swTimer_node *tnode TSRMLS_DC);
 
+//清除所有时间定时器
 void php_swoole_clear_all_timer()
 {
     if (!SwooleG.timer.map)
@@ -64,7 +66,7 @@ void php_swoole_clear_all_timer()
         swTimer_del(&SwooleG.timer, tnode);
     }
 }
-
+//增加定时器
 long php_swoole_add_timer(int ms, zval *callback, zval *param, int persistent TSRMLS_DC)
 {
     if (ms > SW_TIMER_MAX_VALUE)
@@ -307,6 +309,7 @@ void php_swoole_check_timer(int msec)
     }
 }
 
+//设置一个间隔时钟定时器 tick定时器会持续触发，直到调用swoole_timer_clear清除
 PHP_FUNCTION(swoole_timer_tick)
 {
     long after_ms;
@@ -317,7 +320,7 @@ PHP_FUNCTION(swoole_timer_tick)
     {
         return;
     }
-
+    //增加定时器，返回定时器ID
     long timer_id = php_swoole_add_timer(after_ms, callback, param, 1 TSRMLS_CC);
     if (timer_id < 0)
     {
@@ -329,6 +332,7 @@ PHP_FUNCTION(swoole_timer_tick)
     }
 }
 
+//在指定的时间后执行函数
 PHP_FUNCTION(swoole_timer_after)
 {
     long after_ms;
@@ -351,6 +355,7 @@ PHP_FUNCTION(swoole_timer_after)
     }
 }
 
+//使用定时器ID来删除定时器
 PHP_FUNCTION(swoole_timer_clear)
 {
     if (!SwooleG.timer.set)
@@ -364,7 +369,13 @@ PHP_FUNCTION(swoole_timer_clear)
     {
         return;
     }
-
+    
+    /*
+    static sw_inline swTimer_node* swTimer_get(swTimer *timer, long id)
+    {
+        return (swTimer_node*) swHashMap_find_int(timer->map, id);
+    }
+     */
     swTimer_node *tnode = swTimer_get(&SwooleG.timer, id);
     if (tnode == NULL)
     {
@@ -396,6 +407,7 @@ PHP_FUNCTION(swoole_timer_clear)
     }
 }
 
+//根据time_id 查看是否存在该事件
 PHP_FUNCTION(swoole_timer_exists)
 {
     if (!SwooleG.timer.set)

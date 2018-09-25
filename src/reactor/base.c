@@ -115,6 +115,7 @@ static void swReactor_defer_timer_callback(swTimer *timer, swTimer_node *tnode)
     sw_free(cb);
 }
 
+
 static int swReactor_defer(swReactor *reactor, swCallback callback, void *data)
 {
     swDefer_callback *cb = sw_malloc(sizeof(swDefer_callback));
