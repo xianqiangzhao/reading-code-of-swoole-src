@@ -1462,7 +1462,7 @@ PHP_RINIT_FUNCTION(swoole)
 PHP_RSHUTDOWN_FUNCTION(swoole)
 {
     SWOOLE_G(req_status) = PHP_SWOOLE_RSHUTDOWN_BEGIN;
-    //貌似没有用到
+    //请求shutdown 时，这里请求是一个php 处理的请求，在cli 模型下可以理解为脚本执行终了前，模块卸载前。
     swoole_call_rshutdown_function(NULL);
     //clear pipe buffer
     if (swIsWorker())//SwooleG.process_type==SW_PROCESS_WORKER 当前进程类型是worker 的话，执行 swWorker_clean

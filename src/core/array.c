@@ -24,6 +24,33 @@
  */
 swArray *swArray_new(int page_size, size_t item_size)
 {
+    /*
+    typedef struct _swArray
+    {
+        void **pages;
+
+        
+         // 页的数量
+         
+        uint16_t page_num;
+
+        
+        // 每页的数据元素个数
+        
+        uint16_t page_size;
+
+        
+        // 数据元素的尺寸
+        
+        uint32_t item_size;
+
+        
+        // 数据个数
+        
+        uint32_t item_num;
+        uint32_t offset;
+    } swArray;
+    */
     swArray *array = sw_malloc(sizeof(swArray));
     if (array == NULL)
     {
@@ -43,7 +70,7 @@ swArray *swArray_new(int page_size, size_t item_size)
     array->item_size = item_size;//数据元素的尺寸
     array->page_size = page_size;//每页的数据元素个数 1024
 
-    swArray_extend(array);
+    swArray_extend(array);//分配一页内存
 
     return array;
 }
