@@ -48,7 +48,7 @@ int swSystemTimer_init(int interval, int use_pipe)
         {
             return SW_ERR;
         }
-        timer->fd = timer->pipe.getFd(&timer->pipe, 0);
+        timer->fd = timer->pipe.getFd(&timer->pipe, 0);//取得事件eventfd 描述符
         timer->use_pipe = 1;
     }
     else

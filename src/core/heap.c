@@ -40,11 +40,12 @@ swHeap *swHeap_new(size_t n, uint8_t type)
         return NULL;
     }
     heap->num = 1;//个数
-    heap->size = (n + 1);//size
+    heap->size = (n + 1);//size 1025
     heap->type = type;//类型
     return heap;
 }
 
+//heap 释放
 void swHeap_free(swHeap *heap)
 {
     sw_free(heap->nodes);
@@ -63,6 +64,7 @@ static sw_inline int swHeap_compare(uint8_t type, uint64_t a, uint64_t b)
     }
 }
 
+//heap size
 uint32_t swHeap_size(swHeap *q)
 {
     return (q->num - 1);
@@ -82,13 +84,13 @@ static uint32_t swHeap_maxchild(swHeap *heap, uint32_t i)
     }
     return child_i;
 }
-
+//i = heap->num
 static void swHeap_bubble_up(swHeap *heap, uint32_t i)
 {
     swHeap_node *moving_node = heap->nodes[i];
     uint32_t parent_i;
 
-    for (parent_i = parent(i);
+    for (parent_i = parent(i); //parent(i)  展开是 ((i) >> 1) 即 i/2 的商  1/2 = 0 5/2 = 2 6/2 = 3
             (i > 1) && swHeap_compare(heap->type, heap->nodes[parent_i]->priority, moving_node->priority);
             i = parent_i, parent_i = parent(i))
     {
@@ -117,6 +119,7 @@ static void swHeap_percolate_down(swHeap *heap, uint32_t i)
     moving_node->position = i;
 }
 
+//新建一个swHeap_node 把 swTimer_node 作为data 参数挂载到 heap->nodes
 swHeap_node* swHeap_push(swHeap *heap, uint64_t priority, void *data)
 {
     void *tmp;
@@ -134,15 +137,30 @@ swHeap_node* swHeap_push(swHeap *heap, uint64_t priority, void *data)
         heap->size = newsize;
     }
 
-    swHeap_node *node = sw_malloc(sizeof(swHeap_node));
+    swHeap_node *node = sw_malloc(sizeof(swHeap_node));//新建一个swHeap_node 把 swTimer_node 作为data 参数挂载到 heap->nodes
     if (!node)
     {
         return NULL;
     }
-    node->priority = priority;
+    /*typedef struct swHeap_node
+    {
+        uint64_t priority;
+        uint32_t position;
+        void *data;
+    } swHeap_node;
+
+    typedef struct _swHeap
+    {
+        uint32_t num;
+        uint32_t size;
+        uint8_t type;
+        swHeap_node **nodes;
+    } swHeap;
+    */
+    node->priority = priority;//定时器
     node->data = data;
     i = heap->num++;
-    heap->nodes[i] = node;
+    heap->nodes[i] = node;//
     swHeap_bubble_up(heap, i);
     return node;
 }

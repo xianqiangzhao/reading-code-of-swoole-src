@@ -42,6 +42,8 @@ int swTimer_now(struct timeval *time)
     return SW_OK;
 }
 
+//现在时间 - basetime时间  (swTimer_init 函数)
+//定时器时间矫正
 static sw_inline int64_t swTimer_get_relative_msec()
 {
     struct timeval now;
@@ -49,6 +51,8 @@ static sw_inline int64_t swTimer_get_relative_msec()
     {
         return SW_ERR;
     }
+    //1,000,000 微秒 = 1秒  = 1000ms
+    //转为毫秒
     int64_t msec1 = (now.tv_sec - SwooleG.timer.basetime.tv_sec) * 1000;
     int64_t msec2 = (now.tv_usec - SwooleG.timer.basetime.tv_usec) / 1000;
     return msec1 + msec2;
@@ -120,6 +124,14 @@ int swTimer_init(long msec)
         return SW_ERR;
     }
     //hashmap  SW_HASHMAP_INIT_BUCKET_N =32
+    /*
+    typedef struct
+    {
+        struct swHashMap_node *root;
+        struct swHashMap_node *iterator;
+        swHashMap_dtor dtor;
+    } swHashMap;
+    */
     SwooleG.timer.map = swHashMap_new(SW_HASHMAP_INIT_BUCKET_N, NULL);
     if (!SwooleG.timer.map)
     {
@@ -153,7 +165,7 @@ void swTimer_free(swTimer *timer)
     }
 }
 
-//定时器初始化
+//非task 进程  定时器初始化
 static int swReactorTimer_init(long exec_msec)
 {
     SwooleG.main_reactor->check_timer = SW_TRUE;
@@ -169,15 +181,45 @@ static int swReactorTimer_set(swTimer *timer, long exec_msec)
     return SW_OK;
 }
 
+//定时器增加  SwooleG.timer.add 回调函数
+//调用原型  SwooleG.timer.add(&SwooleG.timer, ms, persistent, cb, timer_func)
+
 static swTimer_node* swTimer_add(swTimer *timer, int _msec, int interval, void *data, swTimerCallback callback)
 {
+    /*
+    typedef struct _swHeap
+    {
+        uint32_t num;
+        uint32_t size;
+        uint8_t type;
+        swHeap_node **nodes;
+    } swHeap;
+    typedef struct swHeap_node
+    {
+        uint64_t priority;
+        uint32_t position;
+        void *data;
+    } swHeap_node;
+
+    struct _swTimer_node
+    {
+        swHeap_node *heap_node;
+        void *data;
+        swTimerCallback callback;
+        int64_t exec_msec;
+        uint32_t interval;
+        long id;
+        int type;                 //0 normal node 1 node for client_coro
+        uint8_t remove;
+    };
+    */
     swTimer_node *tnode = sw_malloc(sizeof(swTimer_node));
     if (!tnode)
     {
         swSysError("malloc(%ld) failed.", sizeof(swTimer_node));
         return NULL;
     }
-
+    //取得现在时间 - basetime 毫秒单位
     int64_t now_msec = swTimer_get_relative_msec();
     if (now_msec < 0)
     {
@@ -185,10 +227,10 @@ static swTimer_node* swTimer_add(swTimer *timer, int _msec, int interval, void *
         return NULL;
     }
 
-    tnode->data = data;
+    tnode->data = data;//data 中是一个 swTimer_callback 结构体，里面有php 回调函数
     tnode->type = SW_TIMER_TYPE_KERNEL;
-    tnode->exec_msec = now_msec + _msec;
-    tnode->interval = interval ? _msec : 0;
+    tnode->exec_msec = now_msec + _msec;//_msec 是定时器时间  now_msec 是 now - basetime
+    tnode->interval = interval ? _msec : 0;//定时器触发间隔时间
     tnode->remove = 0;
     tnode->callback = callback;
 
@@ -198,13 +240,13 @@ static swTimer_node* swTimer_add(swTimer *timer, int _msec, int interval, void *
         timer->_next_msec = _msec;
     }
 
-    tnode->id = timer->_next_id++;
+    tnode->id = timer->_next_id++; //timer id
     if (unlikely(tnode->id < 0))
     {
         tnode->id = 1;
         timer->_next_id = 2;
     }
-    timer->num++;
+    timer->num++;//定时器个数+1
 
     tnode->heap_node = swHeap_push(timer->heap, tnode->exec_msec, tnode);
     if (tnode->heap_node == NULL)

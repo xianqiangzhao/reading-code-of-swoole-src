@@ -113,7 +113,15 @@ swHashMap* swHashMap_new(uint32_t bucket_num, swHashMap_dtor dtor)
     hmap->root = root;//root 节点
 
     bzero(root, sizeof(swHashMap_node));
-
+    /*
+    typedef struct swHashMap_node
+    {
+        uint64_t key_int;
+        char *key_str;
+        void *data;
+        UT_hash_handle hh;
+    } swHashMap_node;
+    */
     root->hh.tbl = (UT_hash_table*) sw_malloc(sizeof(UT_hash_table));
     if (!(root->hh.tbl))
     {
@@ -124,8 +132,8 @@ swHashMap* swHashMap_new(uint32_t bucket_num, swHashMap_dtor dtor)
 
     memset(root->hh.tbl, 0, sizeof(UT_hash_table));
     root->hh.tbl->tail = &(root->hh);
-    root->hh.tbl->num_buckets = SW_HASHMAP_INIT_BUCKET_N;
-    root->hh.tbl->log2_num_buckets = HASH_INITIAL_NUM_BUCKETS_LOG2;
+    root->hh.tbl->num_buckets = SW_HASHMAP_INIT_BUCKET_N; //32
+    root->hh.tbl->log2_num_buckets = HASH_INITIAL_NUM_BUCKETS_LOG2; // 5
     root->hh.tbl->hho = (char*) (&root->hh) - (char*) root;
     root->hh.tbl->buckets = (UT_hash_bucket*) sw_malloc(SW_HASHMAP_INIT_BUCKET_N * sizeof(struct UT_hash_bucket));//hash map 的数据元素申请 初期32个
     if (!root->hh.tbl->buckets)
