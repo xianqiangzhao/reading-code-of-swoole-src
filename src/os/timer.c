@@ -23,13 +23,27 @@ static int swSystemTimer_set(swTimer *timer, long new_interval);
 /**
  * create timer
  */
+//创建定时器 task进程用
 int swSystemTimer_init(int interval, int use_pipe)
 {
     swTimer *timer = &SwooleG.timer;
-    timer->lasttime = interval;
+    timer->lasttime = interval;//定时器时间
     
-    if (use_pipe)
+    if (use_pipe)//是否用事件通知 eventfd
     {
+        /* timer->pipe
+        typedef struct _swPipe
+        {
+            void *object;
+            int blocking;
+            double timeout;
+
+            int (*read)(struct _swPipe *, void *recv, int length);
+            int (*write)(struct _swPipe *, void *send, int length);
+            int (*getFd)(struct _swPipe *, int master);
+            int (*close)(struct _swPipe *);
+        } swPipe;
+        */
         if (swPipeNotify_auto(&timer->pipe, 0, 0) < 0)
         {
             return SW_ERR;

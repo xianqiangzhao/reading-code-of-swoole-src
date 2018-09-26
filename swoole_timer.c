@@ -69,7 +69,7 @@ void php_swoole_clear_all_timer()
 //增加定时器
 long php_swoole_add_timer(int ms, zval *callback, zval *param, int persistent TSRMLS_DC)
 {
-    if (ms > SW_TIMER_MAX_VALUE)
+    if (ms > SW_TIMER_MAX_VALUE) //SW_TIMER_MAX_VALUE =86400000
     {
         swoole_php_fatal_error(E_WARNING, "The given parameters is too big.");
         return SW_ERR;
@@ -92,18 +92,18 @@ long php_swoole_add_timer(int ms, zval *callback, zval *param, int persistent TS
     }
     efree(func_name);
 
-    if (!swIsTaskWorker())
+    if (!swIsTaskWorker())//非task 进程 创建reator 事件loop
     {
         php_swoole_check_reactor();
     }
-
+    //创建定时器
     php_swoole_check_timer(ms);
     swTimer_callback *cb = emalloc(sizeof(swTimer_callback));
 
     cb->data = &cb->_data;
     cb->callback = &cb->_callback;
     memcpy(cb->callback, callback, sizeof(zval));
-    if (param)
+    if (param)//参数放到  cb->data 中
     {
         memcpy(cb->data, param, sizeof(zval));
     }
@@ -113,7 +113,7 @@ long php_swoole_add_timer(int ms, zval *callback, zval *param, int persistent TS
     }
 
 
-    if (SwooleG.enable_coroutine)
+    if (SwooleG.enable_coroutine) //可用协程
     {
         cb->func_cache = func_cache;
     }
@@ -121,25 +121,25 @@ long php_swoole_add_timer(int ms, zval *callback, zval *param, int persistent TS
     {
         efree(func_cache);
     }
-
+    //typedef void (*swTimerCallback)(swTimer *, swTimer_node *);
     swTimerCallback timer_func;
     if (persistent)
-    {
+    {//定时器 间隔执行
         cb->type = SW_TIMER_TICK;
         timer_func = php_swoole_onInterval;
     }
-    else
+    else//到期执行一次
     {
         cb->type = SW_TIMER_AFTER;
         timer_func = php_swoole_onTimeout;
     }
-
+    //增加引用
     sw_zval_add_ref(&cb->callback);
     if (cb->data)
     {
         sw_zval_add_ref(&cb->data);
     }
-
+    //SwooleG.timer.add = swTimer_add
     swTimer_node *tnode = SwooleG.timer.add(&SwooleG.timer, ms, persistent, cb, timer_func);
     if (tnode == NULL)
     {
@@ -301,6 +301,7 @@ void php_swoole_onInterval(swTimer *timer, swTimer_node *tnode)
     }
 }
 
+//time 初期化
 void php_swoole_check_timer(int msec)
 {
     if (unlikely(SwooleG.timer.fd == 0))

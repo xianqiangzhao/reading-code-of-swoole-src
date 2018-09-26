@@ -841,7 +841,7 @@ int swPipeUnsock_close_ext(swPipe *p, int which);
 static inline int swPipeNotify_auto(swPipe *p, int blocking, int semaphore)
 {
 #ifdef HAVE_EVENTFD
-    return swPipeEventfd_create(p, blocking, semaphore, 0);
+    return swPipeEventfd_create(p, blocking, semaphore, 0); //进这个逻辑
 #else
     return swPipeBase_create(p, blocking);
 #endif
@@ -1100,13 +1100,14 @@ typedef struct _swThreadParam
 extern int16_t sw_errno;
 extern char sw_error[SW_ERROR_MSG_SIZE];
 
+//进程类型
 enum swProcessType
 {
-    SW_PROCESS_MASTER     = 1,
-    SW_PROCESS_WORKER     = 2,
-    SW_PROCESS_MANAGER    = 3,
-    SW_PROCESS_TASKWORKER = 4,
-    SW_PROCESS_USERWORKER = 5,
+    SW_PROCESS_MASTER     = 1,//master
+    SW_PROCESS_WORKER     = 2,//worker
+    SW_PROCESS_MANAGER    = 3,//manager
+    SW_PROCESS_TASKWORKER = 4,//task
+    SW_PROCESS_USERWORKER = 5,//userwork
 };
 
 #define swIsMaster()          (SwooleG.process_type==SW_PROCESS_MASTER)

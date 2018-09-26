@@ -13,7 +13,7 @@
   | Author: Tianfeng Han  <mikan.tenny@gmail.com>                        |
   +----------------------------------------------------------------------+
 */
-
+//不支持 eventfd 时用，创建pipe管道读写
 #include "swoole.h"
 
 static int swPipeBase_read(swPipe *p, void *data, int length);

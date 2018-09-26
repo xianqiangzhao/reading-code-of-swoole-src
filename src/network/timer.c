@@ -131,14 +131,14 @@ int swTimer_init(long msec)
     SwooleG.timer._current_id = -1;
     SwooleG.timer._next_msec = msec;
     SwooleG.timer._next_id = 1;
-    SwooleG.timer.add = swTimer_add;
+    SwooleG.timer.add = swTimer_add;//追加定时器回调函数
 
-    if (swIsTaskWorker())
-    {
+    if (swIsTaskWorker())//task 进程
+    {   //创建eventfd 
         swSystemTimer_init(msec, SwooleG.use_timer_pipe);
     }
-    else
-    {
+    else //非task 进程 
+    {   //设定timer epoll wait 时间就是定时器执行时间
         swReactorTimer_init(msec);
     }
 
@@ -153,6 +153,7 @@ void swTimer_free(swTimer *timer)
     }
 }
 
+//定时器初始化
 static int swReactorTimer_init(long exec_msec)
 {
     SwooleG.main_reactor->check_timer = SW_TRUE;

@@ -30,6 +30,11 @@ typedef struct _swPipeEventfd
 } swPipeEventfd;
 
 
+//eventfd 创建
+/*
+eventfd是用来实现多进程或多线程的之间的事件通知的
+http://man7.org/linux/man-pages/man2/eventfd.2.html
+*/
 int swPipeEventfd_create(swPipe *p, int blocking, int semaphore, int timeout)
 {
     int efd;
@@ -40,7 +45,7 @@ int swPipeEventfd_create(swPipe *p, int blocking, int semaphore, int timeout)
         return -1;
     }
 
-    flag = EFD_NONBLOCK;
+    flag = EFD_NONBLOCK;//非阻塞
 
     if (blocking == 1)
     {
@@ -71,7 +76,7 @@ int swPipeEventfd_create(swPipe *p, int blocking, int semaphore, int timeout)
         return -1;
     }
     else
-    {
+    {   //绑定回调函数
         p->object = object;
         p->read = swPipeEventfd_read;
         p->write = swPipeEventfd_write;
