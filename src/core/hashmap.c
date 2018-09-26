@@ -175,10 +175,10 @@ int swHashMap_add_int(swHashMap *hmap, uint64_t key, void *data)
         swWarn("malloc failed");
         return SW_ERR;
     }
-    node->key_int = key;
-    node->data = data;
+    node->key_int = key;//timer id
+    node->data = data;// swTimer_node 结构
     node->key_str = NULL;
-    HASH_ADD_INT(root, key_int, node);
+    HASH_ADD_INT(root, key_int, node);//增加到uhash 中
     return SW_OK;
 }
 

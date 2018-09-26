@@ -171,9 +171,11 @@ int swReactor_empty(swReactor *reactor)
 /**
  * execute when reactor timeout and reactor finish
  */
+//定时器到期执行
 static void swReactor_onTimeout_and_Finish(swReactor *reactor)
 {
     //check timer
+    //swReactorTimer_init 时設置为true
     if (reactor->check_timer)
     {
         swTimer_select(&SwooleG.timer);
@@ -181,6 +183,7 @@ static void swReactor_onTimeout_and_Finish(swReactor *reactor)
     //defer tasks
     do
     {
+        //下一个事件循环开始时执行函数回调
         swDefer_callback *defer_tasks = reactor->defer_tasks;
         swDefer_callback *cb, *tmp;
         reactor->defer_tasks = NULL;
@@ -195,6 +198,7 @@ static void swReactor_onTimeout_and_Finish(swReactor *reactor)
     } while (reactor->defer_tasks);
 
     //callback at the end
+    //每一轮事件循环结束时调用
     if (reactor->idle_task.callback)
     {
         reactor->idle_task.callback(reactor->idle_task.data);
@@ -203,7 +207,7 @@ static void swReactor_onTimeout_and_Finish(swReactor *reactor)
     swWorker *worker = SwooleWG.worker;
     if (worker != NULL)
     {
-        if (SwooleWG.wait_exit == 1)
+        if (SwooleWG.wait_exit == 1) //swWorker_stop 函數会设置为1 ，意味着worker进程退出
         {
             swWorker_try_to_exit();
         }
@@ -222,18 +226,19 @@ static void swReactor_onTimeout_and_Finish(swReactor *reactor)
     }
 #endif
 }
-
+//swoole_tick 定时器到期回调函数
 static void swReactor_onTimeout(swReactor *reactor)
-{
+{   //定时器回调函数执行等
     swReactor_onTimeout_and_Finish(reactor);
 
-    if (reactor->disable_accept)
+    if (reactor->disable_accept)//假如当前状态是 不能接收请求则设定为运行接收请求
     {
-        reactor->enable_accept(reactor);
+        reactor->enable_accept(reactor);//swServer_enable_accept
         reactor->disable_accept = 0;
     }
 }
 
+//事件循环最后执行该函数
 static void swReactor_onFinish(swReactor *reactor)
 {
     //check signal

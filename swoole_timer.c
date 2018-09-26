@@ -237,6 +237,7 @@ void php_swoole_onTimeout(swTimer *timer, swTimer_node *tnode)
     php_swoole_del_timer(tnode TSRMLS_CC);
 }
 
+//定时器到期函数
 void php_swoole_onInterval(swTimer *timer, swTimer_node *tnode)
 {
     zval *retval = NULL;
@@ -244,12 +245,12 @@ void php_swoole_onInterval(swTimer *timer, swTimer_node *tnode)
 
     zval *ztimer_id;
 
-    swTimer_callback *cb = tnode->data;
+    swTimer_callback *cb = tnode->data;//php 回调函数存放结构体
 
     SW_MAKE_STD_ZVAL(ztimer_id);
     ZVAL_LONG(ztimer_id, tnode->id);
 
-    if (SwooleG.enable_coroutine)
+    if (SwooleG.enable_coroutine)//协程方式执行
     {
         zval *args[2];
         if (cb->data)
@@ -267,16 +268,16 @@ void php_swoole_onInterval(swTimer *timer, swTimer_node *tnode)
             return;
         }
     }
-    else
+    else//非协程方式执行
     {
         zval **args[2];
         if (cb->data)
         {
             argc = 2;
             sw_zval_add_ref(&cb->data);
-            args[1] = &cb->data;
+            args[1] = &cb->data;  //参数2 是建立定时器时的参数
         }
-        args[0] = &ztimer_id;
+        args[0] = &ztimer_id;//php 回调函数参数1 是 timer id
 
         if (sw_call_user_function_ex(EG(function_table), NULL, cb->callback, &retval, argc, args, 0, NULL TSRMLS_CC) == FAILURE)
         {
@@ -295,7 +296,7 @@ void php_swoole_onInterval(swTimer *timer, swTimer_node *tnode)
     }
     sw_zval_ptr_dtor(&ztimer_id);
 
-    if (tnode->remove)
+    if (tnode->remove) //是否移除该定时器
     {
         php_swoole_del_timer(tnode TSRMLS_CC);
     }

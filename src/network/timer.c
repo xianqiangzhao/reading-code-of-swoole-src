@@ -141,7 +141,9 @@ int swTimer_init(long msec)
     }
 
     SwooleG.timer._current_id = -1;
+    //定时时间，第一次会设定，第二次的swoole_tick 定时器会在swTimer_add 中有个比较，小于第一次设定的话，就用最小的那个值，这个值用在epoll_wait 时间
     SwooleG.timer._next_msec = msec;
+
     SwooleG.timer._next_id = 1;
     SwooleG.timer.add = swTimer_add;//追加定时器回调函数
 
@@ -233,9 +235,9 @@ static swTimer_node* swTimer_add(swTimer *timer, int _msec, int interval, void *
     tnode->interval = interval ? _msec : 0;//定时器触发间隔时间
     tnode->remove = 0;
     tnode->callback = callback;
-
+    //当前epoll 时间值 > 要追加的时间值的话，重新设定epoll wait 时间
     if (timer->_next_msec < 0 || timer->_next_msec > _msec)
-    {
+    {   //回调swReactorTimer_set，进行epoll 等待时间设定
         timer->set(timer, _msec);
         timer->_next_msec = _msec;
     }
@@ -247,7 +249,7 @@ static swTimer_node* swTimer_add(swTimer *timer, int _msec, int interval, void *
         timer->_next_id = 2;
     }
     timer->num++;//定时器个数+1
-
+    //tnode 放到 timer->heap中
     tnode->heap_node = swHeap_push(timer->heap, tnode->exec_msec, tnode);
     if (tnode->heap_node == NULL)
     {
@@ -284,8 +286,10 @@ int swTimer_del(swTimer *timer, swTimer_node *tnode)
     return SW_TRUE;
 }
 
+//定时器到期执行回调函数
 int swTimer_select(swTimer *timer)
-{
+{   
+    //now - basetime
     int64_t now_msec = swTimer_get_relative_msec();
     if (now_msec < 0)
     {
@@ -296,10 +300,10 @@ int swTimer_select(swTimer *timer)
     swHeap_node *tmp;
     long timer_id;
 
-    while ((tmp = swHeap_top(timer->heap)))
+    while ((tmp = swHeap_top(timer->heap)))//循环定时器堆
     {
-        tnode = tmp->data;
-        if (tnode->exec_msec > now_msec)
+        tnode = tmp->data;//取出timer_node ，这个结构体中有定时器设置
+        if (tnode->exec_msec > now_msec)//检查时间 
         {
             break;
         }
@@ -307,6 +311,8 @@ int swTimer_select(swTimer *timer)
         timer_id = timer->_current_id = tnode->id;
         if (!tnode->remove)
         {
+            //回调执行 
+            // swoole_timer_tick 时调用  php_swoole_onInterval   swoole_timer_after 时调用 php_swoole_onTimeout
             tnode->callback(timer, tnode);
         }
         timer->_current_id = -1;
@@ -322,7 +328,7 @@ int swTimer_select(swTimer *timer)
             continue;
         }
 
-        timer->num--;
+        timer->num--;//定时器个数减少
         swHeap_pop(timer->heap);
         swHashMap_del_int(timer->map, timer_id);
         sw_free(tnode);

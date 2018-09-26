@@ -74,7 +74,7 @@ static void swServer_disable_accept(swReactor *reactor)
         {
             continue;
         }
-        reactor->del(reactor, ls->sock);
+        reactor->del(reactor, ls->sock);//删除事件监听
     }
 }
 
@@ -89,7 +89,7 @@ void swServer_enable_accept(swReactor *reactor)
         {
             continue;
         }
-        reactor->add(reactor, ls->sock, SW_FD_LISTEN);
+        reactor->add(reactor, ls->sock, SW_FD_LISTEN);//恢复事件监听
     }
 }
 
@@ -135,10 +135,10 @@ int swServer_master_onAccept(swReactor *reactor, swEvent *event)
             case EINTR:
                 continue;
             default:
-                if (errno == EMFILE || errno == ENFILE)
+                if (errno == EMFILE || errno == ENFILE) //进程的fd已用尽
                 {
                     swServer_disable_accept(reactor);
-                    reactor->disable_accept = 1;
+                    reactor->disable_accept = 1;//reactor 不能接收请求
                 }
                 swoole_error_log(SW_LOG_ERROR, SW_ERROR_SYSTEM_CALL_FAIL, "accept() failed. Error: %s[%d]", strerror(errno), errno);
                 return SW_OK;

@@ -268,7 +268,7 @@ static int swReactorEpoll_wait(swReactor *reactor, struct timeval *timeo)
         else if (n == 0)
         {
             if (reactor->onTimeout != NULL)
-            {
+            {  //reactor->onTimeout  = swReactor_onTimeout
                 reactor->onTimeout(reactor);//执行定时处理
             }
             continue;
