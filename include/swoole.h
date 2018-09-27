@@ -2016,6 +2016,7 @@ void swTimer_free(swTimer *timer);
 int swTimer_select(swTimer *timer);
 int swTimer_now(struct timeval *time);
 
+//hash map 中取得定时器node
 static sw_inline swTimer_node* swTimer_get(swTimer *timer, long id)
 {
     return (swTimer_node*) swHashMap_find_int(timer->map, id);

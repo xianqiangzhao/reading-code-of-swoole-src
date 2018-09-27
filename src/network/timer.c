@@ -260,6 +260,7 @@ static swTimer_node* swTimer_add(swTimer *timer, int _msec, int interval, void *
     return tnode;
 }
 
+//从堆中删除定时器
 int swTimer_del(swTimer *timer, swTimer_node *tnode)
 {
     if (tnode->remove)
@@ -271,6 +272,7 @@ int swTimer_del(swTimer *timer, swTimer_node *tnode)
         tnode->remove = 1;
         return SW_TRUE;
     }
+    //hashmap 中删除该 swTimer_node
     if (swHashMap_del_int(timer->map, tnode->id) < 0)
     {
         return SW_ERR;
@@ -278,6 +280,7 @@ int swTimer_del(swTimer *timer, swTimer_node *tnode)
     if (tnode->heap_node)
     {
         //remove from min-heap
+        //删除 swTimer_node 中的heap_node
         swHeap_remove(timer->heap, tnode->heap_node);
         sw_free(tnode->heap_node);
     }
