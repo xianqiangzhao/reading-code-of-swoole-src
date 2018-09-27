@@ -300,7 +300,7 @@ int swTimer_select(swTimer *timer)
     swHeap_node *tmp;
     long timer_id;
 
-    while ((tmp = swHeap_top(timer->heap)))//循环定时器堆
+    while ((tmp = swHeap_top(timer->heap)))//取得堆顶   return heap->nodes[1];
     {
         tnode = tmp->data;//取出timer_node ，这个结构体中有定时器设置
         if (tnode->exec_msec > now_msec)//检查时间 
@@ -324,11 +324,13 @@ int swTimer_select(swTimer *timer)
             {
                 tnode->exec_msec += tnode->interval;
             }
+            //调整优先级
             swHeap_change_priority(timer->heap, tnode->exec_msec, tmp);
             continue;
         }
 
         timer->num--;//定时器个数减少
+        // 弹出堆顶元素 将尾部元素和堆顶元素进行交换，然后再对堆顶元素进行排序。
         swHeap_pop(timer->heap);
         swHashMap_del_int(timer->map, timer_id);
         sw_free(tnode);

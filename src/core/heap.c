@@ -70,6 +70,7 @@ uint32_t swHeap_size(swHeap *q)
     return (q->num - 1);
 }
 
+//找到i节点下的最大子节点（priority最大）
 static uint32_t swHeap_maxchild(swHeap *heap, uint32_t i)
 {
     uint32_t child_i = left(i);
@@ -84,7 +85,7 @@ static uint32_t swHeap_maxchild(swHeap *heap, uint32_t i)
     }
     return child_i;
 }
-//i = heap->num
+//堆跳表排序 最小的时间排到第一个
 static void swHeap_bubble_up(swHeap *heap, uint32_t i)
 {
     swHeap_node *moving_node = heap->nodes[i];
@@ -102,6 +103,7 @@ static void swHeap_bubble_up(swHeap *heap, uint32_t i)
     moving_node->position = i;
 }
 
+//找到该node 下面的max(priority) 子节点，交换位置
 static void swHeap_percolate_down(swHeap *heap, uint32_t i)
 {
     uint32_t child_i;
@@ -164,7 +166,7 @@ swHeap_node* swHeap_push(swHeap *heap, uint64_t priority, void *data)
     swHeap_bubble_up(heap, i);
     return node;
 }
-
+//swHeap_change_priority(timer->heap, tnode->exec_msec, tmp)
 void swHeap_change_priority(swHeap *heap, uint64_t new_priority, void* ptr)
 {
     swHeap_node *node = ptr;
@@ -172,13 +174,14 @@ void swHeap_change_priority(swHeap *heap, uint64_t new_priority, void* ptr)
     uint64_t old_pri = node->priority;
 
     node->priority = new_priority;
+    //old_pri 是旧的权重   new_priority 新的权重
     if (swHeap_compare(heap->type, old_pri, new_priority))
     {
         swHeap_bubble_up(heap, pos);
     }
-    else
+    else//正常会进入这个逻辑  旧的 < 新的
     {
-        swHeap_percolate_down(heap, pos);
+        swHeap_percolate_down(heap, pos);//pos 是heap->node 中的下标
     }
 }
 
@@ -198,6 +201,7 @@ int swHeap_remove(swHeap *heap, swHeap_node *node)
     return SW_OK;
 }
 
+//将尾部元素和堆顶元素进行交换，然后再对堆顶元素进行排序。
 void *swHeap_pop(swHeap *heap)
 {
     swHeap_node *head;
