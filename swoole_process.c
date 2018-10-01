@@ -735,7 +735,7 @@ int php_swoole_process_start(swWorker *process, zval *object TSRMLS_DC)
     }
     SwooleWG.id = process->id;
 
-    if (SwooleG.timer.fd)//有信号 signal timer  的话清除
+    if (SwooleG.timer.fd)//非task建立的timer
     {
         swTimer_free(&SwooleG.timer);
         bzero(&SwooleG.timer, sizeof(SwooleG.timer));

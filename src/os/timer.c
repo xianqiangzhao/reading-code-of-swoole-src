@@ -56,11 +56,12 @@ int swSystemTimer_init(int interval, int use_pipe)
         timer->fd = 1;
         timer->use_pipe = 0;
     }
-
+    //调用setitimer系统函数设定定时时间，到期产生SIGALRM信号
     if (swSystemTimer_signal_set(timer, interval) < 0)
     {
         return SW_ERR;
     }
+    //设置SIGALRM信号回调函数
     swSignal_add(SIGALRM, swSystemTimer_signal_handler);
     timer->set = swSystemTimer_set;
     return SW_OK;
@@ -97,7 +98,7 @@ static int swSystemTimer_signal_set(swTimer *timer, long interval)
             timer_set.it_value.tv_sec += 1;
         }
     }
-
+    //在指定时间间隔 产生SIGALRM信号
     if (setitimer(ITIMER_REAL, &timer_set, NULL) < 0)
     {
         swWarn("setitimer() failed. Error: %s[%d]", strerror(errno), errno);
@@ -116,6 +117,7 @@ void swSystemTimer_free(swTimer *timer)
 
 static long current_interval = 0;
 
+//重新设置定时器时间
 static int swSystemTimer_set(swTimer *timer, long new_interval)
 {
     if (new_interval == current_interval)
@@ -126,6 +128,7 @@ static int swSystemTimer_set(swTimer *timer, long new_interval)
     return swSystemTimer_signal_set(timer, new_interval);
 }
 
+//SIGALRM 信号产生后回调该函数，写入timerfd 中一个1
 void swSystemTimer_signal_handler(int sig)
 {
     SwooleG.signal_alarm = 1;

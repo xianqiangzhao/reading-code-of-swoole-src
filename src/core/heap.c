@@ -13,13 +13,14 @@
  | Author: Tianfeng Han  <mikan.tenny@gmail.com>                        |
  +----------------------------------------------------------------------+
  */
+//用数组结构存储二叉最小堆
 
 #include "swoole.h"
 #include "heap.h"
 
-#define left(i)   ((i) << 1)
-#define right(i)  (((i) << 1) + 1)
-#define parent(i) ((i) >> 1)
+#define left(i)   ((i) << 1) //取左节点
+#define right(i)  (((i) << 1) + 1) //右节点
+#define parent(i) ((i) >> 1)  //父节点
 
 static void swHeap_bubble_up(swHeap *heap, uint32_t i);
 static uint32_t swHeap_maxchild(swHeap *heap, uint32_t i);
@@ -70,51 +71,53 @@ uint32_t swHeap_size(swHeap *q)
     return (q->num - 1);
 }
 
-//找到i节点下的最大子节点（priority最大）
+//找到i节点下的最小子节点（priority最小）
 static uint32_t swHeap_maxchild(swHeap *heap, uint32_t i)
 {
-    uint32_t child_i = left(i);
-    if (child_i >= heap->num)
+    uint32_t child_i = left(i); //左节点
+    if (child_i >= heap->num) //左节点不存在
     {
         return 0;
     }
-    swHeap_node * child_node = heap->nodes[child_i];
+    swHeap_node * child_node = heap->nodes[child_i];//取得左节点
+    //比较左右节点，左节点 > 右节点 ，返回右节点下标
     if ((child_i + 1) < heap->num && swHeap_compare(heap->type, child_node->priority, heap->nodes[child_i + 1]->priority))
     {
         child_i++;
     }
     return child_i;
 }
-//堆跳表排序 最小的时间排到第一个
+// 下标i的heap_node 插入到堆中，执行的结果是执行时间最小者排第一个的最小堆结构                   
 static void swHeap_bubble_up(swHeap *heap, uint32_t i)
 {
-    swHeap_node *moving_node = heap->nodes[i];
+    swHeap_node *moving_node = heap->nodes[i];实际上就是                                                                                                                  
     uint32_t parent_i;
-
+    //判断插入节点与父节点的执行时间大小进行替换。
     for (parent_i = parent(i); //parent(i)  展开是 ((i) >> 1) 即 i/2 的商  1/2 = 0 5/2 = 2 6/2 = 3
-            (i > 1) && swHeap_compare(heap->type, heap->nodes[parent_i]->priority, moving_node->priority);
+            (i > 1) && swHeap_compare(heap->type, heap->nodes[parent_i]->priority, moving_node->priority);//父节点>该节点
             i = parent_i, parent_i = parent(i))
-    {
+    {   
+        //交换位置
         heap->nodes[i] = heap->nodes[parent_i];
         heap->nodes[i]->position = i;
     }
-
+    //把加入的节点放到i中,经过上面的调整，i是放入加入节点的最合适的位置。
     heap->nodes[i] = moving_node;
     moving_node->position = i;
 }
 
-//找到该node 下面的max(priority) 子节点，交换位置
+// i节点向下移到合适位置
 static void swHeap_percolate_down(swHeap *heap, uint32_t i)
 {
     uint32_t child_i;
     swHeap_node *moving_node = heap->nodes[i];
 
-    while ((child_i = swHeap_maxchild(heap, i))
-            && swHeap_compare(heap->type, moving_node->priority, heap->nodes[child_i]->priority))
+    while ((child_i = swHeap_maxchild(heap, i)) //i 节点下面的最小priority的节点下标
+            && swHeap_compare(heap->type, moving_node->priority, heap->nodes[child_i]->priority)) //如果该节点大于子节点，则字节的向上调整
     {
         heap->nodes[i] = heap->nodes[child_i];
         heap->nodes[i]->position = i;
-        i = child_i;
+        i = child_i;//i  =  子节点（最小priority）
     }
 
     heap->nodes[i] = moving_node;
@@ -179,18 +182,19 @@ void swHeap_change_priority(swHeap *heap, uint64_t new_priority, void* ptr)
     {
         swHeap_bubble_up(heap, pos);
     }
-    else//正常会进入这个逻辑  旧的 < 新的
+    else//正常会进入这个逻辑  旧的 < 新的  把该节点向推下调整
     {
         swHeap_percolate_down(heap, pos);//pos 是heap->node 中的下标
     }
 }
 
+//移除节点
 int swHeap_remove(swHeap *heap, swHeap_node *node)
 {
     uint32_t pos = node->position;
-    heap->nodes[pos] = heap->nodes[--heap->num];
+    heap->nodes[pos] = heap->nodes[--heap->num];//最后一个节点放到要移除的节点
 
-    if (swHeap_compare(heap->type, node->priority, heap->nodes[pos]->priority))
+    if (swHeap_compare(heap->type, node->priority, heap->nodes[pos]->priority))//要移除的节点大于最后节点的priority的话，最后一个节点上浮，否则下浮
     {
         swHeap_bubble_up(heap, pos);
     }
@@ -201,11 +205,11 @@ int swHeap_remove(swHeap *heap, swHeap_node *node)
     return SW_OK;
 }
 
-//将尾部元素和堆顶元素进行交换，然后再对堆顶元素进行排序。
+//将尾部元素和堆顶元素进行交换，然后再对堆顶元素进行下浮，找到最小priority的节点放到top 位置。
 void *swHeap_pop(swHeap *heap)
 {
     swHeap_node *head;
-    if (!heap || heap->num == 1)
+    if (!heap || heap->num == 1) 
     {
         return NULL;
     }
@@ -216,9 +220,9 @@ void *swHeap_pop(swHeap *heap)
 
     void *data = head->data;
     sw_free(head);
-    return data;
+    return data; //返回pop节点的data
 }
-
+//返回top 节点中的值
 void *swHeap_peek(swHeap *heap)
 {
     if (heap->num == 1)

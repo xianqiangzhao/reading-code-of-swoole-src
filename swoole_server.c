@@ -1931,13 +1931,14 @@ void php_swoole_onBufferEmpty(swServer *serv, swDataHead *info)
     }
 }
 
+//swoole_server 构造函数
 PHP_METHOD(swoole_server, __construct)
 {
     zend_size_t host_len = 0;
     char *serv_host;
     long sock_type = SW_SOCK_TCP;
     long serv_port = 0;
-    long serv_mode = SW_MODE_PROCESS;
+    long serv_mode = SW_MODE_PROCESS; //默认多进程模式
 
     //only cli env
     if (strcasecmp("cli", sapi_module.name) != 0)
@@ -1957,8 +1958,9 @@ PHP_METHOD(swoole_server, __construct)
         swoole_php_fatal_error(E_WARNING, "server is running. unable to create swoole_server.");
         RETURN_FALSE;
     }
-
+    
     swServer *serv = sw_malloc(sizeof (swServer));
+    //初始化 server  参数初始化
     swServer_init(serv);
 
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|lll", &serv_host, &host_len, &serv_port, &serv_mode, &sock_type) == FAILURE)
@@ -1995,7 +1997,7 @@ PHP_METHOD(swoole_server, __construct)
         }
     }
     else
-    {
+    {   //端口增加
         swListenPort *port = swServer_add_port(serv, sock_type, serv_host, serv_port);
         if (!port)
         {
@@ -2547,7 +2549,7 @@ PHP_METHOD(swoole_server, set)
 
     RETURN_TRUE;
 }
-
+//回调方法绑定
 PHP_METHOD(swoole_server, on)
 {
     zval *name;

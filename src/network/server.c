@@ -808,14 +808,15 @@ void swServer_init(swServer *serv)
 {
     swoole_init();
     bzero(serv, sizeof(swServer));
-
+    //运行模式
     serv->factory_mode = SW_MODE_BASE;
-
+    //reactor 线程数量
     serv->reactor_num = SW_REACTOR_NUM > SW_REACTOR_MAX_THREAD ? SW_REACTOR_MAX_THREAD : SW_REACTOR_NUM;
-
+    //连接处理分配模式
     serv->dispatch_mode = SW_DISPATCH_FDMOD;
-
+    //worker 进程数量
     serv->worker_num = SW_CPU_NUM;
+    //连接数量1024*1024
     serv->max_connection = SwooleG.max_sockets < SW_SESSION_LIST_SIZE ? SwooleG.max_sockets : SW_SESSION_LIST_SIZE;
 
     serv->max_request = 0;
@@ -828,22 +829,25 @@ void swServer_init(swServer *serv)
     serv->upload_tmp_dir = sw_strdup("/tmp");
 
     //heartbeat check
-    serv->heartbeat_idle_time = SW_HEARTBEAT_IDLE;
-    serv->heartbeat_check_interval = SW_HEARTBEAT_CHECK;
+    serv->heartbeat_idle_time = SW_HEARTBEAT_IDLE;//0
+    serv->heartbeat_check_interval = SW_HEARTBEAT_CHECK;//0
 
-    serv->buffer_input_size = SW_BUFFER_INPUT_SIZE;
-    serv->buffer_output_size = SW_BUFFER_OUTPUT_SIZE;
+    serv->buffer_input_size = SW_BUFFER_INPUT_SIZE;//1024*1024*2 2M
+    serv->buffer_output_size = SW_BUFFER_OUTPUT_SIZE; //1024*1024*2 2M
 
     serv->task_ipc_mode = SW_TASK_IPC_UNIXSOCK;
 
     /**
      * alloc shared memory
      */
+    //统计信息
     serv->stats = SwooleG.memory_pool->alloc(SwooleG.memory_pool, sizeof(swServerStats));
     if (serv->stats == NULL)
     {
         swError("[Master] Fatal Error: failed to allocate memory for swServer->stats.");
     }
+
+    //进程信息
     serv->gs = SwooleG.memory_pool->alloc(SwooleG.memory_pool, sizeof(swServerGS));
     if (serv->gs == NULL)
     {
@@ -1482,10 +1486,10 @@ int swserver_add_systemd_socket(swServer *serv)
     }
     return count;
 }
-
+//增加监听端口
 swListenPort* swServer_add_port(swServer *serv, int type, char *host, int port)
 {
-    if (serv->listen_port_num >= SW_MAX_LISTEN_PORT)
+    if (serv->listen_port_num >= SW_MAX_LISTEN_PORT)//60000
     {
         swoole_error_log(SW_LOG_ERROR, SW_ERROR_SERVER_TOO_MANY_LISTEN_PORT, "allows up to %d ports to listen", SW_MAX_LISTEN_PORT);
         return NULL;

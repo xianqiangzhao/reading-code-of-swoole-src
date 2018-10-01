@@ -125,7 +125,7 @@ void swoole_init(void)
     SwooleG.enable_signalfd = 1;
 #endif
 
-    SwooleG.use_timer_pipe = 1;
+    SwooleG.use_timer_pipe = 1;//是否启用eventfd 事件进行时间定时通知，会创建eventfd 描述符进行读写
 }
 
 void swoole_clean(void)

@@ -213,6 +213,7 @@ static void swSignalfd_set(int signo, swSignalHander callback)
     }
     if (signal_fd > 0)
     {
+        //阻塞信号以使得它们不被默认的处理试方式处理
         sigprocmask(SIG_BLOCK, &signalfd_mask, NULL);
         signalfd(signal_fd, &signalfd_mask, SFD_NONBLOCK | SFD_CLOEXEC);
     }

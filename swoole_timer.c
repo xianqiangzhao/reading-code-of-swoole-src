@@ -305,13 +305,13 @@ void php_swoole_onInterval(swTimer *timer, swTimer_node *tnode)
 //time 初期化
 void php_swoole_check_timer(int msec)
 {
-    if (unlikely(SwooleG.timer.fd == 0))
+    if (unlikely(SwooleG.timer.fd == 0))//非task进程会设置为-1
     {
         swTimer_init(msec);
     }
 }
 
-//设置一个间隔时钟定时器 tick定时器会持续触发，直到调用swoole_timer_clear清除
+//设置一个间隔时钟定时器 tick定时器会持续触发，直到调用swoole_taimer_clear清除
 PHP_FUNCTION(swoole_timer_tick)
 {
     long after_ms;
