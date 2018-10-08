@@ -487,25 +487,27 @@ static void php_swoole_task_onTimeout(swTimer *timer, swTimer_node *tnode)
     efree(task_co);
 }
 #endif
-
+//实例化swoole_server_port_class 并保存port 信息到server_port_list
 static zval* php_swoole_server_add_port(swServer *serv, swListenPort *port TSRMLS_DC)
 {
+    //实例化一个 swoole_server_port_class    
     zval *port_object;
     SW_ALLOC_INIT_ZVAL(port_object);
     object_init_ex(port_object, swoole_server_port_class_entry_ptr);
-    server_port_list.zobjects[server_port_list.num++] = port_object;
+    server_port_list.zobjects[server_port_list.num++] = port_object;//把实例化的swoole_server_port_class存在到server_port_list中
 
+    //端口属性
     swoole_server_port_property *property = emalloc(sizeof(swoole_server_port_property));
     bzero(property, sizeof(swoole_server_port_property));
     swoole_set_property(port_object, 0, property);
-    swoole_set_object(port_object, port);
+    swoole_set_object(port_object, port);//swoole_server_port_class中的保持 port 结构数据
     property->serv = serv;
-
+    // 更新该将要打开的端口服务信息
     zend_update_property_string(swoole_server_port_class_entry_ptr, port_object, ZEND_STRL("host"), port->host TSRMLS_CC);
     zend_update_property_long(swoole_server_port_class_entry_ptr, port_object, ZEND_STRL("port"), port->port TSRMLS_CC);
     zend_update_property_long(swoole_server_port_class_entry_ptr, port_object, ZEND_STRL("type"), port->type TSRMLS_CC);
     zend_update_property_long(swoole_server_port_class_entry_ptr, port_object, ZEND_STRL("sock"), port->sock TSRMLS_CC);
-
+    //连接迭代器
     zval *connection_iterator;
     SW_MAKE_STD_ZVAL(connection_iterator);
     object_init_ex(connection_iterator, swoole_connection_iterator_class_entry_ptr);
@@ -517,7 +519,7 @@ static zval* php_swoole_server_add_port(swServer *serv, swListenPort *port TSRML
     i->serv = serv;
     swoole_set_object(connection_iterator, i);
 
-    add_next_index_zval(server_port_list.zports, port_object);
+    add_next_index_zval(server_port_list.zports, port_object);// swoole_server_port_class    增加到server_port_list.zports中
 
     return port_object;
 }
@@ -1987,7 +1989,8 @@ PHP_METHOD(swoole_server, __construct)
     }
 
     bzero(php_sw_server_callbacks, sizeof (zval*) * PHP_SERVER_CALLBACK_NUM);
-
+    //https://baike.baidu.com/item/systemd/18473007
+    //SYSTEMD监听端口
     if (serv_port == 0 && strcasecmp(serv_host, "SYSTEMD") == 0)
     {
         if (swserver_add_systemd_socket(serv) <= 0)
@@ -1997,7 +2000,7 @@ PHP_METHOD(swoole_server, __construct)
         }
     }
     else
-    {   //端口增加
+    {   //socket 建立，bind ,非阻塞设定
         swListenPort *port = swServer_add_port(serv, sock_type, serv_host, serv_port);
         if (!port)
         {
@@ -2018,7 +2021,7 @@ PHP_METHOD(swoole_server, __construct)
     bzero(i, sizeof(swConnectionIterator));
     i->serv = serv;
     swoole_set_object(connection_iterator_object, i);
-
+    //更新属性到 swoole_server class 中
     zend_update_property_stringl(swoole_server_class_entry_ptr, server_object, ZEND_STRL("host"), serv_host, host_len TSRMLS_CC);
     zend_update_property_long(swoole_server_class_entry_ptr, server_object, ZEND_STRL("port"), (long) serv->listen_list->port TSRMLS_CC);
     zend_update_property_long(swoole_server_class_entry_ptr, server_object, ZEND_STRL("mode"), serv->factory_mode TSRMLS_CC);
@@ -2037,12 +2040,14 @@ PHP_METHOD(swoole_server, __construct)
     swListenPort *ls;
     LL_FOREACH(serv->listen_list, ls)
     {
-        php_swoole_server_add_port(serv, ls TSRMLS_CC);
+        //实例化swoole_server_port_class 并保存port 信息到server_port_list
+        php_swoole_server_add_port(serv, ls TSRMLS_CC);//
     }
-
+    //更新ports属性，其存储的就是实例化的swoole_server_port_class
     zend_update_property(swoole_server_class_entry_ptr, server_object, ZEND_STRL("ports"), ports TSRMLS_CC);
 }
 
+//析构函数
 PHP_METHOD(swoole_server, __destruct)
 {
 #if SW_DEBUG_SERVER_DESTRUCT

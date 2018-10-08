@@ -335,7 +335,7 @@ int swTimer_select(swTimer *timer)
         timer->num--;//定时器个数减少
         // 弹出堆顶元素 将尾部元素和堆顶元素进行交换，然后再对堆顶元素进行排序。
         swHeap_pop(timer->heap);
-        swHashMap_del_int(timer->map, timer_id);
+        swHashMap_del_int(timer->map, timer_id);//hash map 中删除该定时事件
         sw_free(tnode);
     }
 

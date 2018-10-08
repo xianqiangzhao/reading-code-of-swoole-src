@@ -55,11 +55,11 @@ void swHeap_free(swHeap *heap)
 
 static sw_inline int swHeap_compare(uint8_t type, uint64_t a, uint64_t b)
 {
-    if (type == SW_MIN_HEAP)
+    if (type == SW_MIN_HEAP) //最小堆的情况
     {
         return a > b;
     }
-    else
+    else//最大堆
     {
         return a < b;
     }

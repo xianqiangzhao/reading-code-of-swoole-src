@@ -1504,7 +1504,7 @@ swListenPort* swServer_add_port(swServer *serv, int type, char *host, int port)
         swoole_error_log(SW_LOG_ERROR, SW_ERROR_NAME_TOO_LONG, "address '%s' exceeds %d characters limit", host, SW_HOST_MAXSIZE - 1);
         return NULL;
     }
-
+    //从全局共享内存中分配一个swListenPort
     swListenPort *ls = SwooleG.memory_pool->alloc(SwooleG.memory_pool, sizeof(swListenPort));
     if (ls == NULL)
     {
@@ -1575,7 +1575,7 @@ swListenPort* swServer_add_port(swServer *serv, int type, char *host, int port)
     {
         serv->have_tcp_sock = 1;
     }
-
+    //用 uthash 把 ls 增加到serv->listen_list中
     LL_APPEND(serv->listen_list, ls);
     serv->listen_port_num++;
     return ls;

@@ -515,7 +515,7 @@ struct _swServer
 
     swReactor reactor;
     swFactory factory;
-    swListenPort *listen_list;
+    swListenPort *listen_list; //监听list 
     pthread_t heartbeat_pidt;
 
     /**
