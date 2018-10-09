@@ -2065,7 +2065,7 @@ PHP_METHOD(swoole_server, __destruct)
 
     zval *port_object;
     for (i = 0; i < server_port_list.num; i++)
-    {
+    {   //swoole_server_port_class对象获得并释放
         port_object = server_port_list.zobjects[i];
         efree(port_object);
         server_port_list.zobjects[i] = NULL;
@@ -2076,10 +2076,11 @@ PHP_METHOD(swoole_server, __destruct)
 #endif
 }
 
+//设置属性
 PHP_METHOD(swoole_server, set)
 {
     zval *zset = NULL;
-    zval *zobject = getThis();
+    zval *zobject = getThis();//取得当前class
     HashTable *vht;
 
     zval *v;
@@ -2539,7 +2540,7 @@ PHP_METHOD(swoole_server, set)
         convert_to_long(v);
         serv->message_queue_key = (int) Z_LVAL_P(v);
     }
-
+    //调用实例化swoole_server class 的端口calss的set 方法
     zval *retval = NULL;
     zval *port_object = server_port_list.zobjects[0];
 
@@ -2548,8 +2549,9 @@ PHP_METHOD(swoole_server, set)
 
     sw_zend_call_method_with_1_params(&port_object, swoole_server_port_class_entry_ptr, NULL, "set", &retval, zset);
 
+    //向 swoole_server_class 的setting 属性中放入set
     zval *zsetting = php_swoole_read_init_property(swoole_server_class_entry_ptr, getThis(), ZEND_STRL("setting") TSRMLS_CC);
-    sw_php_array_merge(Z_ARRVAL_P(zsetting), Z_ARRVAL_P(zset));
+    sw_php_array_merge(Z_ARRVAL_P(zsetting), Z_ARRVAL_P(zset));//zsetting 和zset 合并反应到zsetting
     sw_zval_ptr_dtor(&zset);
 
     RETURN_TRUE;
