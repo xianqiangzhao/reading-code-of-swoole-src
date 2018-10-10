@@ -1,7 +1,7 @@
 # reading-code-of-swoole-src
 swoole 源码阅读
 
-# 8/25~9/25 update
+# 8/25~10/10 update
  1.  php-wrapper.h 包裹宏定义分析。
  2.  php_swoole.h 函数定义等分析。
  3.  swoole.c  函数定义，这个文件中主要定义class ，执行初始化工作。
@@ -17,3 +17,4 @@ swoole 源码阅读
  13. swoole_process_pool.c 进程池管理。
  14. swoole_event.c 事件管理。
  15. swoole_time.c 定时器管理。
+ 16. swoole_server.c 服务器（核心），http server ,udp server ,socket server 都继承这个class。

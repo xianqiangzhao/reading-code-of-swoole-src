@@ -27,6 +27,7 @@ static int swFactoryProcess_finish(swFactory *factory, swSendData *data);
 static int swFactoryProcess_shutdown(swFactory *factory);
 static int swFactoryProcess_end(swFactory *factory, int fd);
 
+//注册factory 回调函数
 int swFactoryProcess_create(swFactory *factory, int worker_num)
 {
     swFactoryProcess *object;

@@ -1096,12 +1096,14 @@ static int swReactorThread_onWrite(swReactor *reactor, swEvent *ev)
     return SW_OK;
 }
 
+//多进程模式 分配空间，注册回调函数
 int swReactorThread_create(swServer *serv)
 {
     int ret = 0;
     /**
      * init reactor thread pool
      */
+    //分配swReactorThread
     serv->reactor_threads = SwooleG.memory_pool->alloc(SwooleG.memory_pool, (serv->reactor_num * sizeof(swReactorThread)));
     if (serv->reactor_threads == NULL)
     {
@@ -1112,6 +1114,7 @@ int swReactorThread_create(swServer *serv)
     /**
      * alloc the memory for connection_list
      */
+    //分配连接池
     if (serv->factory_mode == SW_MODE_PROCESS)
     {
         serv->connection_list = sw_shm_calloc(serv->max_connection, sizeof(swConnection));
@@ -1136,13 +1139,13 @@ int swReactorThread_create(swServer *serv)
         }
         ret = swFactoryThread_create(&(serv->factory), serv->worker_num);
     }
-    else if (serv->factory_mode == SW_MODE_PROCESS)
+    else if (serv->factory_mode == SW_MODE_PROCESS)//多进程模式 默认
     {
         if (serv->worker_num < 1)
         {
             swError("Fatal Error: serv->worker_num < 1");
             return SW_ERR;
-        }
+        }//注册factory 回调函数 参数serv->worker_num 没有用
         ret = swFactoryProcess_create(&(serv->factory), serv->worker_num);
     }
     else

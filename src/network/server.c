@@ -857,6 +857,7 @@ void swServer_init(swServer *serv)
     SwooleG.serv = serv;
 }
 
+//server 
 int swServer_create(swServer *serv)
 {
     if (SwooleG.main_reactor)
@@ -880,13 +881,13 @@ int swServer_create(swServer *serv)
         return SW_ERR;
     }
 #endif
-
+    //根据运行模式不同，进入不同逻辑
     if (serv->factory_mode == SW_MODE_SINGLE)
     {
         return swReactorProcess_create(serv);
     }
     else
-    {
+    {   //多进程模式 1、分配空间，2、serv->factory 注册回调函数
         return swReactorThread_create(serv);
     }
 }

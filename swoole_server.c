@@ -44,9 +44,10 @@ static int php_swoole_task_id = 0;
 static int udp_server_socket;
 static int dgram_server_socket;
 
+//保存监听端口对象
 static struct
 {
-    zval *zobjects[SW_MAX_LISTEN_PORT];
+    zval *zobjects[SW_MAX_LISTEN_PORT];//60000
     zval *zports;
     uint8_t num;
 } server_port_list;
@@ -529,6 +530,7 @@ void php_swoole_server_before_start(swServer *serv, zval *zobject TSRMLS_DC)
     /**
      * create swoole server
      */
+    //分配空间（连接池），serv->factory 注册回调函数
     if (swServer_create(serv) < 0)
     {
         swoole_php_fatal_error(E_ERROR, "failed to create the server. Error: %s", sw_error);
@@ -538,11 +540,11 @@ void php_swoole_server_before_start(swServer *serv, zval *zobject TSRMLS_DC)
     swTrace("Create swoole_server host=%s, port=%d, mode=%d, type=%d", serv->listen_list->host, (int) serv->listen_list->port, serv->factory_mode, (int) serv->listen_list->type);
 
     sw_zval_add_ref(&zobject);
-    serv->ptr2 = sw_zval_dup(zobject);
+    serv->ptr2 = sw_zval_dup(zobject);//端口对象
 
 #ifdef SW_COROUTINE
-    coro_init(TSRMLS_C);
-    if (serv->send_yield)
+    coro_init(TSRMLS_C);//协程初始化
+    if (serv->send_yield)//发送数据协程调度
     {
         send_coroutine_map = swHashMap_new(SW_HASHMAP_INIT_BUCKET_N, NULL);
         if (send_coroutine_map == NULL)
@@ -559,6 +561,7 @@ void php_swoole_server_before_start(swServer *serv, zval *zobject TSRMLS_DC)
     /**
      * Master Process ID
      */
+    //master 进程pid 更新到属性中
     zend_update_property_long(swoole_server_class_entry_ptr, zobject, ZEND_STRL("master_pid"), getpid() TSRMLS_CC);
 
     zval *zsetting = sw_zend_read_property(swoole_server_class_entry_ptr, zobject, ZEND_STRL("setting"), 1 TSRMLS_CC);
@@ -571,7 +574,7 @@ void php_swoole_server_before_start(swServer *serv, zval *zobject TSRMLS_DC)
 #endif
         zend_update_property(swoole_server_class_entry_ptr, zobject, ZEND_STRL("setting"), zsetting TSRMLS_CC);
     }
-
+    //seting 属性更新
     if (!zend_hash_str_exists(Z_ARRVAL_P(zsetting), ZEND_STRL("worker_num")))
     {
         add_assoc_long(zsetting, "worker_num", serv->worker_num);
@@ -624,6 +627,8 @@ void php_swoole_server_before_start(swServer *serv, zval *zobject TSRMLS_DC)
     }
 }
 
+//注册回调函数
+//php 回调函数保存在php_sw_server_callbacks中，如果定义了，就注册相应的回调函数，这个回调函数用来再回调php 函数
 void php_swoole_register_callback(swServer *serv)
 {
     /*
@@ -1496,7 +1501,7 @@ static void php_swoole_onWorkerExit(swServer *serv, int worker_id)
         sw_zval_ptr_dtor(&retval);
     }
 }
-
+//用户进程启动
 static void php_swoole_onUserWorkerStart(swServer *serv, swWorker *worker)
 {
 
@@ -2211,6 +2216,7 @@ PHP_METHOD(swoole_server, set)
             COROG.max_coro_num = SW_MAX_CORO_NUM_LIMIT;
         }
     }
+    //发送数据协程调度
     if (php_swoole_array_get_value(vht, "send_yield", v))
     {
         convert_to_boolean(v);
@@ -2573,7 +2579,7 @@ PHP_METHOD(swoole_server, on)
     {
         return;
     }
-
+    //检查 cb 是否是可以回调的函数
     char *func_name = NULL;
     zend_fcall_info_cache *func_cache = emalloc(sizeof(zend_fcall_info_cache));
     if (!sw_zend_is_callable_ex(cb, NULL, 0, &func_name, NULL, func_cache, NULL TSRMLS_CC))
@@ -2621,13 +2627,17 @@ PHP_METHOD(swoole_server, on)
         {
             continue;
         }
+        //第一个参数的回调函数事件名称匹配上的话，更新server类的属性
         if (strncasecmp(callback_name[i], Z_STRVAL_P(name), Z_STRLEN_P(name)) == 0)
         {
-            memcpy(property_name + 2, callback_name[i], Z_STRLEN_P(name));
+            memcpy(property_name + 2, callback_name[i], Z_STRLEN_P(name));//on + event 名称 例如 onConnect onReceive
             l_property_name = Z_STRLEN_P(name) + 2;
             property_name[l_property_name] = '\0';
+            //更新回调函数到相应的属性中
             zend_update_property(swoole_server_class_entry_ptr, getThis(), property_name, l_property_name, cb TSRMLS_CC);
+            //存储回调函数
             php_sw_server_callbacks[i] = sw_zend_read_property(swoole_server_class_entry_ptr, getThis(), property_name, l_property_name, 0 TSRMLS_CC);
+            //存储回调函数 zend_fcall_info_cache结构
             php_sw_server_caches[i] = func_cache;
             sw_copy_to_stack(php_sw_server_callbacks[i], _php_sw_server_callbacks[i]);
             break;
@@ -2641,7 +2651,7 @@ PHP_METHOD(swoole_server, on)
         RETURN_FALSE;
     }
 
-    if (i < SW_SERVER_CB_onStart)
+    if (i < SW_SERVER_CB_onStart) // i < 4  Connect、Receive、Close 事件的时候，调用相应的server_port_class 的on 函数
     {
         zval *port_object = server_port_list.zobjects[0];
         zval *retval = NULL;
@@ -2653,7 +2663,7 @@ PHP_METHOD(swoole_server, on)
         RETURN_TRUE;
     }
 }
-
+//addListener 的别名实体方法 增加监听端口
 PHP_METHOD(swoole_server, listen)
 {
     char *host;
@@ -2672,17 +2682,18 @@ PHP_METHOD(swoole_server, listen)
     {
         return;
     }
-
+     //socket 建立，bind ,非阻塞设定
     swListenPort *ls = swServer_add_port(serv, (int) sock_type, host, (int) port);
     if (!ls)
     {
         RETURN_FALSE;
     }
-
+    //实例化swoole_server_port_class 并保存port 信息到server_port_list
     zval *port_object = php_swoole_server_add_port(serv, ls TSRMLS_CC);
+    //返回swoole_server_port_class对象
     RETURN_ZVAL(port_object, 1, NULL);
 }
-
+//添加一个用户自定义的工作进程
 PHP_METHOD(swoole_server, addProcess)
 {
     swServer *serv = swoole_get_object(getThis());
@@ -2703,7 +2714,7 @@ PHP_METHOD(swoole_server, addProcess)
         swoole_php_fatal_error(E_WARNING, "the first parameter can't be empty.");
         RETURN_FALSE;
     }
-
+    //判断是否是swoole_process_class类型
     if (!instanceof_function(Z_OBJCE_P(process), swoole_process_class_entry_ptr TSRMLS_CC))
     {
         swoole_php_fatal_error(E_ERROR, "object is not instanceof swoole_process.");
@@ -2723,7 +2734,7 @@ PHP_METHOD(swoole_server, addProcess)
 
     swWorker *worker = swoole_get_object(process);
     worker->ptr = process;
-
+    //增加worker 到server
     int id = swServer_add_worker(serv, worker);
     if (id < 0)
     {
@@ -2733,7 +2744,7 @@ PHP_METHOD(swoole_server, addProcess)
     zend_update_property_long(swoole_process_class_entry_ptr, getThis(), ZEND_STRL("id"), id TSRMLS_CC);
     RETURN_LONG(id);
 }
-
+//启动server
 PHP_METHOD(swoole_server, start)
 {
     zval *zobject = getThis();
@@ -2745,19 +2756,20 @@ PHP_METHOD(swoole_server, start)
         swoole_php_fatal_error(E_WARNING, "server is running. unable to execute swoole_server->start.");
         RETURN_FALSE;
     }
-
+    //根据 on 函数定义的回调函数，进行相应的注册。
     php_swoole_register_callback(serv);
-
+    //必须定义回调函数的check.
     if (php_sw_server_callbacks[SW_SERVER_CB_onReceive] == NULL && php_sw_server_callbacks[SW_SERVER_CB_onPacket] == NULL)
     {
         swoole_php_fatal_error(E_ERROR, "require onReceive/onPacket callback");
         RETURN_FALSE;
     }
     //-------------------------------------------------------------
+    //收到信息的回调函数
     serv->onReceive = php_swoole_onReceive;
-
+    //server启动前的准备
     php_swoole_server_before_start(serv, zobject TSRMLS_CC);
-
+    //服务启动，进入事件循环
     ret = swServer_start(serv);
     if (ret < 0)
     {
