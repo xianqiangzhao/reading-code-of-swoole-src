@@ -210,7 +210,7 @@ int swServer_master_onAccept(swReactor *reactor, swEvent *event)
     }
     return SW_OK;
 }
-
+//server 启动前的check 
 static int swServer_start_check(swServer *serv)
 {
     if (serv->onReceive == NULL && serv->onPacket == NULL)
@@ -241,6 +241,7 @@ static int swServer_start_check(swServer *serv)
             }
         }
     }
+    //设置了task 进程，
     //AsyncTask
     if (serv->task_worker_num > 0)
     {
@@ -623,22 +624,24 @@ void swServer_reopen_log_file(swServer *serv)
         swoole_redirect_stdout(SwooleG.log_fd);
     }
 }
-
+//server 启动
 int swServer_start(swServer *serv)
 {
     swFactory *factory = &serv->factory;
     int ret;
-
+    //启动前check
     ret = swServer_start_check(serv);
     if (ret < 0)
     {
         return SW_ERR;
     }
+    //没有找到定义的地方
     if (SwooleG.hooks[SW_GLOBAL_HOOK_BEFORE_SERVER_START])
     {
         swoole_call_hook(SW_GLOBAL_HOOK_BEFORE_SERVER_START, serv);
     }
     //cann't start 2 servers at the same time, please use process->exec.
+    //原子比较设置为1
     if (!sw_atomic_cmp_set(&serv->gs->start, 0, 1))
     {
         swoole_error_log(SW_LOG_ERROR, SW_ERROR_SERVER_ONLY_START_ONE, "must only start one server.");
@@ -650,6 +653,7 @@ int swServer_start(swServer *serv)
         swLog_init(SwooleG.log_file);
     }
     //run as daemon
+    //是否运行在守护进程模式
     if (serv->daemonize > 0)
     {
         /**
@@ -662,7 +666,7 @@ int swServer_start(swServer *serv)
         /**
          * redirect STDOUT_FILENO/STDERR_FILENO to /dev/null
          */
-        else
+        else //如果没有定义 logfile ，log 就写到空设备也就是没有任何输出
         {
             SwooleG.null_fd = open("/dev/null", O_WRONLY);
             if (SwooleG.null_fd > 0)
@@ -674,7 +678,8 @@ int swServer_start(swServer *serv)
                 swoole_error_log(SW_LOG_ERROR, SW_ERROR_SYSTEM_CALL_FAIL, "open(/dev/null) failed. Error: %s[%d]", strerror(errno), errno);
             }
         }
-
+        //进入守护进程模式
+        //http://man7.org/linux/man-pages/man3/daemon.3.html
         if (daemon(0, 1) < 0)
         {
             return SW_ERR;
@@ -683,8 +688,9 @@ int swServer_start(swServer *serv)
 
     //master pid
     serv->gs->master_pid = getpid();
+    //运行开始时间
     serv->gs->now = serv->stats->start_time = time(NULL);
-
+    //默认是 SW_DISPATCH_FDMOD 固定模式，根据连接的文件描述符分配worker。这样可以保证同一个连接发来的数据只会被同一个worker处理
     if (serv->dispatch_mode == SW_DISPATCH_STREAM)
     {
         serv->stream_socket = swoole_string_format(64, "/tmp/swoole.%d.sock", serv->gs->master_pid);
@@ -702,12 +708,12 @@ int swServer_start(swServer *serv)
         swoole_fcntl_set_option(serv->stream_fd, 1, 1);
         SwooleG.reuse_port = _reuse_port;
     }
-
+    //回调函数设置
     serv->send = swServer_tcp_send;
     serv->sendwait = swServer_tcp_sendwait;
     serv->sendfile = swServer_tcp_sendfile;
     serv->close = swServer_tcp_close;
-
+    //worker 内存分配
     serv->workers = SwooleG.memory_pool->alloc(SwooleG.memory_pool, serv->worker_num * sizeof(swWorker));
     if (serv->workers == NULL)
     {
@@ -743,11 +749,12 @@ int swServer_start(swServer *serv)
      * For swoole_server->taskwait, create notify pipe and result shared memory.
      */
     if (serv->task_worker_num > 0 && serv->worker_num > 0)
-    {
+    {   //serv->task_result 是swEventData类型
         serv->task_result = sw_shm_calloc(serv->worker_num, sizeof(swEventData));
+        //serv->task_notify 是swPipe类型
         serv->task_notify = sw_calloc(serv->worker_num, sizeof(swPipe));
         for (i = 0; i < serv->worker_num; i++)
-        {
+        {   //建立消息通知eventfd
             if (swPipeNotify_auto(&serv->task_notify[i], 1, 0))
             {
                 return SW_ERR;

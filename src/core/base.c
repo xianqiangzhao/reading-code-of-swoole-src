@@ -405,6 +405,8 @@ int swoole_system_random(int min, int max)
     return min + (random_value % (max - min + 1));
 }
 
+//dup2 函数文件描述符复制，复制第一个参数给第二个，第二个执行close,fcntl函数进行文件描述符的复制
+//http://man7.org/linux/man-pages/man2/dup.2.html
 void swoole_redirect_stdout(int new_fd)
 {
     if (dup2(new_fd, STDOUT_FILENO) < 0)

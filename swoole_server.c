@@ -608,7 +608,7 @@ void php_swoole_server_before_start(swServer *serv, zval *zobject TSRMLS_DC)
     zval *retval = NULL;
     zval *port_object;
     zval *port_setting;
-
+    //循环所有监听对象，调用相应的swoole_server_port的set函数 把setting的设定也赋值给swoole_server_port对象
     for (i = 1; i < server_port_list.num; i++)
     {
         port_object = server_port_list.zobjects[i];
