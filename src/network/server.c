@@ -777,11 +777,13 @@ int swServer_start(swServer *serv)
     }
 
     //factory start
+    //调用swFactoryProcess_create 函数中注册的函数swFactoryProcess_start 启动 manger ,master worker task 进程
     if (factory->start(factory) < 0)
     {
         return SW_ERR;
     }
     //signal Init
+    //主线程继续 ， 安装信号
     swServer_signal_init(serv);
 
     //write PID file
@@ -795,7 +797,8 @@ int swServer_start(swServer *serv)
         ret = swReactorProcess_start(serv);
     }
     else
-    {
+    {   
+        //在单独的n个线程中接受维持TCP连接，进入事件循环
         ret = swServer_start_proxy(serv);
     }
     swServer_free(serv);
