@@ -14,6 +14,8 @@
  +----------------------------------------------------------------------+
  */
 
+//工厂类，服务端启动，关闭等，连接任务分配
+
 #include "swoole.h"
 #include "server.h"
 
@@ -66,13 +68,13 @@ static int swFactoryProcess_shutdown(swFactory *factory)
 
     return SW_OK;
 }
-
+//服务进程启动
 static int swFactoryProcess_start(swFactory *factory)
 {
     int i;
     swServer *serv = factory->ptr;
     swWorker *worker;
-
+    //worker 创建发送内存池 && 建立互斥锁（用于进程间
     for (i = 0; i < serv->worker_num; i++)
     {
         worker = swServer_get_worker(serv, i);

@@ -30,6 +30,7 @@ static int swWorker_onStreamPackage(swConnection *conn, char *data, uint32_t len
 static int swWorker_onStreamClose(swReactor *reactor, swEvent *event);
 static void swWorker_stop();
 
+//worker 创建发送内存池 && 建立互斥锁（用于进程间）
 int swWorker_create(swWorker *worker)
 {
     /**

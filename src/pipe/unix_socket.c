@@ -117,6 +117,7 @@ int swPipeUnsock_create(swPipe *p, int blocking, int protocol)
         }
 
         int sbsize = SwooleG.socket_buffer_size;//SwooleG.socket_buffer_size = SW_SOCKET_BUFFER_SIZE (8*1024*1024)
+        //发送缓存区大小设置
         swSocket_set_buffer_size(object->socks[0], sbsize);
         swSocket_set_buffer_size(object->socks[1], sbsize);
 

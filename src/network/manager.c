@@ -37,13 +37,14 @@ static void swManager_check_exit_status(swServer *serv, int worker_id, pid_t pid
 static swManagerProcess ManagerProcess;
 
 //create worker child proccess
+//管理进程启动
 int swManager_start(swFactory *factory)
 {
     swFactoryProcess *object = factory->object;
     int i;
     pid_t pid;
     swServer *serv = factory->ptr;
-
+    //建立用于和worker 进程通信的管道
     object->pipes = sw_calloc(serv->worker_num, sizeof(swPipe));
     if (object->pipes == NULL)
     {
@@ -53,11 +54,12 @@ int swManager_start(swFactory *factory)
 
     //worker进程的pipes
     for (i = 0; i < serv->worker_num; i++)
-    {
+    {   //建立用于和worker 进程通信的socketpair 全双工uninx 通信域
         if (swPipeUnsock_create(&object->pipes[i], 1, SOCK_DGRAM) < 0)
         {
             return SW_ERR;
         }
+        //设定建立的文件描述符，任何一端都能读写
         serv->workers[i].pipe_master = object->pipes[i].getFd(&object->pipes[i], SW_PIPE_MASTER);
         serv->workers[i].pipe_worker = object->pipes[i].getFd(&object->pipes[i], SW_PIPE_WORKER);
         serv->workers[i].pipe_object = &object->pipes[i];
@@ -65,25 +67,27 @@ int swManager_start(swFactory *factory)
     }
 
     if (serv->task_worker_num > 0)
-    {
+    {   // 分配建立task worker内存，通信管道
         if (swServer_create_task_worker(serv) < 0)
         {
             return SW_ERR;
         }
 
         swProcessPool *pool = &serv->gs->task_workers;
+        //注册回调函数
         swTaskWorker_init(pool);
 
         swWorker *worker;
         for (i = 0; i < serv->task_worker_num; i++)
         {
             worker = &pool->workers[i];
+            //worker 创建发送内存池 && 建立互斥锁（用于进程间）
             if (swWorker_create(worker) < 0)
             {
                 return SW_ERR;
             }
             if (serv->task_ipc_mode == SW_TASK_IPC_UNIXSOCK)
-            {
+            {   //task 进程通信文件描述符保存到serv->connection_list
                 swServer_store_pipe_fd(SwooleG.serv, worker->pipe_object);
             }
         }

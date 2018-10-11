@@ -21,6 +21,7 @@ static swEventData *current_task = NULL;
 
 static void swTaskWorker_signal_init(void);
 
+//task worker 进程回调函数注册
 void swTaskWorker_init(swProcessPool *pool)
 {
     swServer *serv = SwooleG.serv;

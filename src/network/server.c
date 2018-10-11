@@ -509,6 +509,7 @@ swString** swServer_create_worker_buffer(swServer *serv)
     return buffers;
 }
 
+//创建task worker
 int swServer_create_task_worker(swServer *serv)
 {
     key_t key = 0;
@@ -527,16 +528,17 @@ int swServer_create_task_worker(swServer *serv)
     {
         ipc_mode = SW_IPC_UNIXSOCK;
     }
-
+    //创建 process 进程管理，根据task worker 数量分配woker 内存，建立通信管道
     if (swProcessPool_create(&serv->gs->task_workers, serv->task_worker_num, serv->task_max_request, key, ipc_mode) < 0)
     {
         swWarn("[Master] create task_workers failed.");
         return SW_ERR;
     }
-    if (ipc_mode == SW_IPC_SOCKET)
+    if (ipc_mode == SW_IPC_SOCKET) //创建uninx 套接字域 默认会进来
     {
         char sockfile[sizeof(struct sockaddr_un)];
-        snprintf(sockfile, sizeof(sockfile), "/tmp/swoole.task.%d.sock", serv->gs->master_pid);
+        snprintf(sockfile, sizeof(sockfile), "/tmp/swoole.task.%d.sock", serv->gs->master_pid);//通信sock文件
+        //serv->gs->task_workers->stream->socket 就是建立的socket 描述符
         if (swProcessPool_create_unix_socket(&serv->gs->task_workers, sockfile, 2048) < 0)
         {
             return SW_ERR;
@@ -845,7 +847,7 @@ void swServer_init(swServer *serv)
     serv->buffer_input_size = SW_BUFFER_INPUT_SIZE;//1024*1024*2 2M
     serv->buffer_output_size = SW_BUFFER_OUTPUT_SIZE; //1024*1024*2 2M
 
-    serv->task_ipc_mode = SW_TASK_IPC_UNIXSOCK;
+    serv->task_ipc_mode = SW_TASK_IPC_UNIXSOCK;//
 
     /**
      * alloc shared memory
@@ -1034,6 +1036,7 @@ int swServer_tcp_feedback(swServer *serv, int fd, int event)
     }
 }
 
+//保存通信管道文件描述符
 void swServer_store_pipe_fd(swServer *serv, swPipe *p)
 {
     int master_fd = p->getFd(p, SW_PIPE_MASTER);
