@@ -30,7 +30,7 @@ void swTaskWorker_init(swProcessPool *pool)
     pool->onWorkerStart = swTaskWorker_onStart;
     pool->onWorkerStop = swTaskWorker_onStop;
     pool->type = SW_PROCESS_TASKWORKER;
-    pool->start_id = serv->worker_num;
+    pool->start_id = serv->worker_num;//task 进程的id 从 worker进程数开始 
     pool->run_worker_num = serv->task_worker_num;
 
     if (serv->task_ipc_mode == SW_TASK_IPC_PREEMPTIVE)
@@ -68,7 +68,7 @@ int swTaskWorker_onTask(swProcessPool *pool, swEventData *task)
     }
     else
     {
-        ret = serv->onTask(serv, task);
+        ret = serv->onTask(serv, task);//php_swoole_onTask
     }
 
     return ret;
@@ -118,6 +118,7 @@ static void swTaskWorker_signal_init(void)
 #endif
 }
 
+//task worker start 
 void swTaskWorker_onStart(swProcessPool *pool, int worker_id)
 {
     swServer *serv = pool->ptr;
@@ -125,10 +126,11 @@ void swTaskWorker_onStart(swProcessPool *pool, int worker_id)
     SwooleG.pid = getpid();
 
     SwooleG.use_timer_pipe = 0;
-
+    //关闭端口，父进程继承过来的
     swServer_close_port(serv, SW_TRUE);
-
+    //信号初期化
     swTaskWorker_signal_init();
+    //调用php on worker start 回调函数
     swWorker_onStart(serv);
 
     SwooleG.main_reactor = NULL;
@@ -137,7 +139,7 @@ void swTaskWorker_onStart(swProcessPool *pool, int worker_id)
     worker->request_count = 0;
     worker->traced = 0;
     SwooleWG.worker = worker;
-    SwooleWG.worker->status = SW_WORKER_IDLE;
+    SwooleWG.worker->status = SW_WORKER_IDLE;//设置为空闲
 }
 
 void swTaskWorker_onStop(swProcessPool *pool, int worker_id)

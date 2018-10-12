@@ -526,7 +526,7 @@ int swServer_create_task_worker(swServer *serv)
     }
     else
     {
-        ipc_mode = SW_IPC_UNIXSOCK;
+        ipc_mode = SW_IPC_UNIXSOCK;//默认会进来
     }
     //创建 process 进程管理，根据task worker 数量分配woker 内存，建立通信管道
     if (swProcessPool_create(&serv->gs->task_workers, serv->task_worker_num, serv->task_max_request, key, ipc_mode) < 0)
@@ -534,7 +534,7 @@ int swServer_create_task_worker(swServer *serv)
         swWarn("[Master] create task_workers failed.");
         return SW_ERR;
     }
-    if (ipc_mode == SW_IPC_SOCKET) //创建uninx 套接字域 默认会进来
+    if (ipc_mode == SW_IPC_SOCKET) //创建uninx 套接字域 
     {
         char sockfile[sizeof(struct sockaddr_un)];
         snprintf(sockfile, sizeof(sockfile), "/tmp/swoole.task.%d.sock", serv->gs->master_pid);//通信sock文件
@@ -1050,6 +1050,7 @@ void swServer_store_pipe_fd(swServer *serv, swPipe *p)
     }
 }
 
+//close socket
 void swServer_close_listen_port(swServer *serv)
 {
     swListenPort *ls;

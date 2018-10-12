@@ -74,7 +74,7 @@ int swProcessPool_create(swProcessPool *pool, int worker_num, int max_request, k
         }
         bzero(pool->stream, sizeof(swStreamInfo));
     }
-    else if (ipc_mode == SW_IPC_UNIXSOCK)//unixsock 
+    else if (ipc_mode == SW_IPC_UNIXSOCK)//unixsock  默认
     {
         pool->pipes = sw_calloc(worker_num, sizeof(swPipe));//分配通信管道
         if (pool->pipes == NULL)
@@ -131,6 +131,7 @@ int swProcessPool_create_unix_socket(swProcessPool *pool, char *socket_file, int
     {
         return SW_ERR;
     }
+    //UNIX域套接字
     pool->stream->socket = swSocket_create_server(SW_SOCK_UNIX_STREAM, pool->stream->socket_file, 0, blacklog);
     if (pool->stream->socket < 0)
     {
@@ -179,7 +180,7 @@ int swProcessPool_start(swProcessPool *pool)
     for (i = 0; i < pool->worker_num; i++)
     {
         pool->workers[i].pool = pool;
-        pool->workers[i].id = pool->start_id + i;
+        pool->workers[i].id = pool->start_id + i;//task 进程的id 从 worker进程数 + n 开始
         pool->workers[i].type = pool->type;
         //进程创建，子进程进入回调onworkerstart ,如果有main_loop(即监听socket )的话就会进入 accept 等待。
         if (swProcessPool_spawn(pool, &(pool->workers[i])) < 0)
@@ -363,14 +364,14 @@ pid_t swProcessPool_spawn(swProcessPool *pool, swWorker *worker)
         //pool->onWorkerStart = php_swoole_process_pool_onWorkerStart
         if (pool->onWorkerStart != NULL)
         {
-            pool->onWorkerStart(pool, worker->id); //执行onwokerstart 回调函数
+            pool->onWorkerStart(pool, worker->id); //swTaskWorker_onStart 执行onwokerstart 回调函数
         }
         /**
          * Process main loop
          */
         if (pool->main_loop)//swProcessPool_worker_loop or swProcessPool_worker_loop_ex??
         {
-            ret_code = pool->main_loop(pool, worker);
+            ret_code = pool->main_loop(pool, worker);// task woker 时调用 swProcessPool_worker_loop
         }
         /**
          * Process stop
@@ -399,6 +400,7 @@ pid_t swProcessPool_spawn(swProcessPool *pool, swWorker *worker)
     return pid;
 }
 
+//task worker  时进入这个loop
 static int swProcessPool_worker_loop(swProcessPool *pool, swWorker *worker)
 {
     struct
@@ -410,7 +412,7 @@ static int swProcessPool_worker_loop(swProcessPool *pool, swWorker *worker)
     int n = 0, ret;
     int task_n, worker_task_always = 0;
 
-    if (pool->max_request < 1)
+    if (pool->max_request < 1)//默认 pool->max_request=0
     {
         task_n = 1;
         worker_task_always = 1;
@@ -456,7 +458,7 @@ static int swProcessPool_worker_loop(swProcessPool *pool, swWorker *worker)
                 break;
             }
         }
-        else if (pool->use_socket) //socket 方式
+        else if (pool->use_socket) //uninx  socket 方式
         {
             int fd = accept(pool->stream->socket, NULL, NULL);
             if (fd < 0)
@@ -480,7 +482,7 @@ static int swProcessPool_worker_loop(swProcessPool *pool, swWorker *worker)
             }
             pool->stream->last_connection = fd;
         }
-        else
+        else  //默认会进来 socketpair 全双工通信管道 阻塞在这里
         {
             n = read(worker->pipe_worker, &out.buf, sizeof(out.buf));
             if (n < 0 && errno != EINTR)
@@ -488,7 +490,7 @@ static int swProcessPool_worker_loop(swProcessPool *pool, swWorker *worker)
                 swSysError("[Worker#%d] read(%d) failed.", worker->id, worker->pipe_worker);
             }
         }
-
+        //timer 定时事件在onworker_start 中定义timer事件，这样事件到期就会在read 处中断，产生alarm 信号，执行事件回调函数
         /**
          * timer
          */
@@ -499,7 +501,7 @@ static int swProcessPool_worker_loop(swProcessPool *pool, swWorker *worker)
                 alarm_handler: SwooleG.signal_alarm = 0;
                 swTimer_select(&SwooleG.timer);
             }
-            continue;
+            continue;//定时器执行ok 的化
         }
 
         /**
@@ -507,7 +509,7 @@ static int swProcessPool_worker_loop(swProcessPool *pool, swWorker *worker)
          */
         worker->status = SW_WORKER_BUSY;
         worker->request_time = time(NULL);
-        ret = pool->onTask(pool, &out.buf);
+        ret = pool->onTask(pool, &out.buf);//回调swTaskWorker_onTask  php的回调函数 $serv->on('Task', function (swoole_server $serv, $task_id, $from_id, $data) {
         worker->status = SW_WORKER_IDLE;
         worker->request_time = 0;
         worker->traced = 0;

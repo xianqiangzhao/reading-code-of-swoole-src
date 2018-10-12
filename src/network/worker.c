@@ -463,13 +463,14 @@ void swWorker_onStart(swServer *serv)
         swServer_call_hook(serv, SW_SERVER_HOOK_WORKER_START, hook_args);
     }
 
-    if (SwooleWG.id >= serv->worker_num)
+    //设置进程类型
+    if (SwooleWG.id >= serv->worker_num) //id > worker 进程id 时就是task 进程累心
     {
         SwooleG.process_type = SW_PROCESS_TASKWORKER;
     }
     else
     {
-        SwooleG.process_type = SW_PROCESS_WORKER;
+        SwooleG.process_type = SW_PROCESS_WORKER;//否则时worker 进程
     }
 
     int is_root = !geteuid();
@@ -525,6 +526,7 @@ void swWorker_onStart(swServer *serv)
     SwooleWG.worker = swServer_get_worker(serv, SwooleWG.id);
 
     int i;
+    //当前进程以外的进程空间释放，worker进程的场合，设置管道描述符为非阻塞
     for (i = 0; i < serv->worker_num + serv->task_worker_num; i++)
     {
         worker = swServer_get_worker(serv, i);
@@ -547,7 +549,7 @@ void swWorker_onStart(swServer *serv)
 
     if (serv->onWorkerStart)
     {
-        serv->onWorkerStart(serv, SwooleWG.id);
+        serv->onWorkerStart(serv, SwooleWG.id);//回调php onworker 函数
     }
 }
 
