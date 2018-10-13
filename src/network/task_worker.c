@@ -56,11 +56,13 @@ int swTaskWorker_onFinish(swReactor *reactor, swEvent *event)
     return serv->onFinish(serv, &task);
 }
 
+//swProcessPool_worker_loop 中read 有返回值（worker 中调用$serv->task($data, 0）投递任务后,
+//task 进程读到数据后，执行 pool->onTask(pool, &out.buf) 就会回调该函数
 int swTaskWorker_onTask(swProcessPool *pool, swEventData *task)
 {
     int ret = SW_OK;
     swServer *serv = pool->ptr;
-    current_task = task;
+    current_task = task;//worker 投递进来的数据
 
     if (task->info.type == SW_EVENT_PIPE_MESSAGE)
     {
@@ -68,7 +70,7 @@ int swTaskWorker_onTask(swProcessPool *pool, swEventData *task)
     }
     else
     {
-        ret = serv->onTask(serv, task);//php_swoole_onTask
+        ret = serv->onTask(serv, task);// 回调ontask 函数，task 进程执行任务。 php_swoole_onTask 
     }
 
     return ret;

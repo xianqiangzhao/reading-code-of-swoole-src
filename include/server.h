@@ -74,9 +74,9 @@ enum swEventType
 enum swIPCType
 {
     SW_IPC_NONE     = 0,
-    SW_IPC_UNIXSOCK = 1,
+    SW_IPC_UNIXSOCK = 1,//默认task 通信方式 socketpair 全双工套接字管道
     SW_IPC_MSGQUEUE = 2,
-    SW_IPC_SOCKET   = 3,
+    SW_IPC_SOCKET   = 3, //unix socket 域
 };
 
 enum swTaskIPCMode

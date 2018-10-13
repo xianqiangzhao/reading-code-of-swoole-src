@@ -125,20 +125,21 @@ int swManager_start(swFactory *factory)
     switch (pid)
     {
     //fork manager process
-    case 0:
+    case 0://子进程 也就是manager 
         //wait master process
         SW_START_SLEEP;
         if (serv->gs->start == 0)
         {
             return SW_OK;
         }
+        //manager 进程关闭socket 端口
         swServer_close_listen_port(serv);
 
         /**
          * create task worker process
          */
         if (serv->task_worker_num > 0)
-        {
+        {   //启动task worker 进程
             swProcessPool_start(&serv->gs->task_workers);
         }
         /**
@@ -147,6 +148,7 @@ int swManager_start(swFactory *factory)
         for (i = 0; i < serv->worker_num; i++)
         {
             //close(worker_pipes[i].pipes[0]);
+            //启动worker 进程
             pid = swManager_spawn_worker(factory, i);
             if (pid < 0)
             {

@@ -695,7 +695,7 @@ void php_swoole_register_callback(swServer *serv)
         serv->onBufferEmpty = php_swoole_onBufferEmpty;
     }
 }
-
+//传递结果数据给worker进程
 static int php_swoole_task_finish(swServer *serv, zval *data TSRMLS_DC)
 {
     int flags = 0;
@@ -732,7 +732,7 @@ static int php_swoole_task_finish(swServer *serv, zval *data TSRMLS_DC)
         data_str = Z_STRVAL_P(data);
         data_len = Z_STRLEN_P(data);
     }
-
+    //发送数据给worker
     ret = swTaskWorker_finish(serv, data_str, data_len, flags);
     if (SWOOLE_G(fast_serialize) && serialized_string)
     {
@@ -1037,6 +1037,7 @@ int php_swoole_onPacket(swServer *serv, swEventData *req)
     return SW_OK;
 }
 
+//回调 php ontask 函数
 static int php_swoole_onTask(swServer *serv, swEventData *req)
 {
     zval *zserv = (zval *) serv->ptr2;
@@ -1081,6 +1082,7 @@ static int php_swoole_onTask(swServer *serv, swEventData *req)
     sw_zval_ptr_dtor(&zfrom_id);
     sw_zval_free(zdata);
 
+    //ontask 回调返回值不为 NULL时调用 表示将此内容返回给worker进程。worker进程中会触发onFinish函数，表示投递的task已完成。
     if (retval)
     {
         if (SW_Z_TYPE_P(retval) != IS_NULL)
@@ -1093,6 +1095,7 @@ static int php_swoole_onTask(swServer *serv, swEventData *req)
     return SW_OK;
 }
 
+//on task 回调函数中调用 serv->finish 即执行该函数，把数据发送给worker
 static int php_swoole_onFinish(swServer *serv, swEventData *req)
 {
     zval *zserv = (zval *) serv->ptr2;
@@ -3670,6 +3673,8 @@ PHP_METHOD(swoole_server, sendMessage)
     SW_CHECK_RETURN(swWorker_send2worker(to_worker, &buf, sizeof(buf.info) + buf.info.len, SW_PIPE_MASTER | SW_PIPE_NONBLOCK));
 }
 
+//此函数用于在task进程中通知worker进程，投递的任务已完成。此函数可以传递结果数据给worker进程。
+//server->finish($data)
 PHP_METHOD(swoole_server, finish)
 {
     zval *data;
