@@ -163,6 +163,7 @@ int swManager_start(swFactory *factory)
         /**
          * create user worker process
          */
+        //启动用户进程  也就是 bool swoole_server->addProcess(swoole_process $process); 增加的process 进程
         if (serv->user_worker_list)
         {
             swUserWorker_node *user_worker;
@@ -175,24 +176,26 @@ int swManager_start(swFactory *factory)
                 {
                     swServer_store_pipe_fd(serv, user_worker->worker->pipe_object);
                 }
+                //用户进程创建
                 swManager_spawn_user_worker(serv, user_worker->worker);
             }
         }
 
         SwooleG.process_type = SW_PROCESS_MANAGER;
         SwooleG.pid = getpid();
+        //manager 管理进程 loop
         exit(swManager_loop(factory));
         break;
 
         //master process
     default:
-        serv->gs->manager_pid = pid;
+        serv->gs->manager_pid = pid;//管理进程pid 
         break;
     case -1:
         swError("fork() failed.");
         return SW_ERR;
     }
-    return SW_OK;
+    return SW_OK;//master 进程返回
 }
 
 static void swManager_check_exit_status(swServer *serv, int worker_id, pid_t pid, int status)
@@ -485,13 +488,13 @@ static int swManager_loop(swFactory *factory)
 
     return SW_OK;
 }
-
+//创建worker 进程，并进入epoll_wait循环
 static pid_t swManager_spawn_worker(swFactory *factory, int worker_id)
 {
     pid_t pid;
     int ret;
 
-    pid = fork();
+    pid = fork();//创建子进程
 
     //fork() failed
     if (pid < 0)
@@ -501,7 +504,7 @@ static pid_t swManager_spawn_worker(swFactory *factory, int worker_id)
     }
     //worker child processor
     else if (pid == 0)
-    {
+    {   //worker loop 
         ret = swWorker_loop(factory, worker_id);
         exit(ret);
     }
@@ -609,6 +612,7 @@ void swManager_kill_user_worker(swServer *serv)
     }
 }
 
+//创建 process 进程
 pid_t swManager_spawn_user_worker(swServer *serv, swWorker* worker)
 {
     pid_t pid = fork();

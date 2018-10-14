@@ -848,6 +848,7 @@ static sw_inline int swServer_get_fd(swServer *serv, uint32_t session_id)
     return serv->session_list[session_id % SW_SESSION_LIST_SIZE].fd;
 }
 
+//取得worker
 static sw_inline swWorker* swServer_get_worker(swServer *serv, uint16_t worker_id)
 {
     //Event Worker

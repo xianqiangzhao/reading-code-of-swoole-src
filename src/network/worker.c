@@ -55,8 +55,9 @@ void swWorker_free(swWorker *worker)
     }
 }
 
+//worker 进程信号初始化
 void swWorker_signal_init(void)
-{
+{   //信号清除
     swSignal_clear();
     /**
      * use user settings
@@ -445,6 +446,7 @@ int swWorker_onTask(swFactory *factory, swEventData *task)
     return SW_OK;
 }
 
+//worker start
 void swWorker_onStart(swServer *serv)
 {
     /**
@@ -549,7 +551,7 @@ void swWorker_onStart(swServer *serv)
 
     if (serv->onWorkerStart)
     {
-        serv->onWorkerStart(serv, SwooleWG.id);//回调php onworker 函数
+        serv->onWorkerStart(serv, SwooleWG.id);// 执行 php_swoole_onWorkerStart   函数
     }
 }
 
@@ -727,6 +729,7 @@ void swWorker_clean(void)
 /**
  * worker main loop
  */
+//worker 进程进入loop
 int swWorker_loop(swFactory *factory, int worker_id)
 {
     swServer *serv = factory->ptr;
@@ -738,20 +741,21 @@ int swWorker_loop(swFactory *factory, int worker_id)
 #endif
 
     //worker_id
-    SwooleWG.id = worker_id;
-    SwooleG.pid = getpid();
+    SwooleWG.id = worker_id; //进程id
+    SwooleG.pid = getpid();//进程 pid
 
     swWorker *worker = swServer_get_worker(serv, worker_id);
+    //worker 进程初始化
     swServer_worker_init(serv, worker);
-
+    //分配main reactor
     SwooleG.main_reactor = sw_malloc(sizeof(swReactor));
     if (SwooleG.main_reactor == NULL)
     {
         swError("[Worker] malloc for reactor failed.");
         return SW_ERR;
     }
-
-    if (swReactor_create(SwooleG.main_reactor, SW_REACTOR_MAXEVENTS) < 0)
+    //reactor 创建
+    if (swReactor_create(SwooleG.main_reactor, SW_REACTOR_MAXEVENTS) < 0)//SW_REACTOR_MAXEVENTS = 4096
     {
         swError("[Worker] create worker_reactor failed.");
         return SW_ERR;
@@ -759,11 +763,13 @@ int swWorker_loop(swFactory *factory, int worker_id)
     
     worker->status = SW_WORKER_IDLE;
 
-    int pipe_worker = worker->pipe_worker;
+    int pipe_worker = worker->pipe_worker;//socketpair 建立的worker 通信管道描述符
 
-    swSetNonBlock(pipe_worker);
+    swSetNonBlock(pipe_worker);//设置为非阻塞
     SwooleG.main_reactor->ptr = serv;
+    //监听pipe_worker管道描述符可读事件
     SwooleG.main_reactor->add(SwooleG.main_reactor, pipe_worker, SW_FD_PIPE | SW_EVENT_READ);
+    //pipe_worker管道描述符可读后回调 swWorker_onPipeReceive 函数
     SwooleG.main_reactor->setHandle(SwooleG.main_reactor, SW_FD_PIPE, swWorker_onPipeReceive);
     SwooleG.main_reactor->setHandle(SwooleG.main_reactor, SW_FD_WRITE, swReactor_onWrite);
 
@@ -776,11 +782,11 @@ int swWorker_loop(swFactory *factory, int worker_id)
     {
         worker = swServer_get_worker(serv, i);
         pipe_socket = swReactor_get(SwooleG.main_reactor, worker->pipe_master);
-        pipe_socket->buffer_size = SW_MAX_INT;
+        pipe_socket->buffer_size = SW_MAX_INT;//2147483647
         pipe_socket = swReactor_get(SwooleG.main_reactor, worker->pipe_worker);
         pipe_socket->buffer_size = SW_MAX_INT;
     }
-
+    //SW_DISPATCH_STREAM = 7 没有使用
     if (serv->dispatch_mode == SW_DISPATCH_STREAM)
     {
         SwooleG.main_reactor->add(SwooleG.main_reactor, serv->stream_fd, SW_FD_LISTEN | SW_EVENT_READ);
@@ -791,17 +797,18 @@ int swWorker_loop(swFactory *factory, int worker_id)
         serv->stream_protocol.onPackage = swWorker_onStreamPackage;
         serv->buffer_pool = swLinkedList_new(0, NULL);
     }
-
+    //worker 
     swWorker_onStart(serv);
 
 #ifdef HAVE_SIGNALFD
     if (SwooleG.use_signalfd)
-    {
+    {   //信号安装 使用signalfd方式安装信号
         swSignalfd_setup(SwooleG.main_reactor);
     }
 #endif
     //main loop
-    SwooleG.main_reactor->wait(SwooleG.main_reactor, NULL);
+    //执行事件循环，从该函数中退出就是worker 进程关闭
+    SwooleG.main_reactor->wait(SwooleG.main_reactor, NULL); // SwooleG.main_reactor->wait = swReactorEpoll_wait
     //clear pipe buffer
     swWorker_clean();
     //worker shutdown

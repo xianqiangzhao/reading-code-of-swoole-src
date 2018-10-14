@@ -498,7 +498,7 @@ swString** swServer_create_worker_buffer(swServer *serv)
 
     for (i = 0; i < buffer_num; i++)
     {
-        buffers[i] = swString_new(SW_BUFFER_SIZE_BIG);
+        buffers[i] = swString_new(SW_BUFFER_SIZE_BIG);//65535
         if (buffers[i] == NULL)
         {
             swError("worker buffer_input init failed.");
@@ -547,8 +547,10 @@ int swServer_create_task_worker(swServer *serv)
     return SW_OK;
 }
 
+//worker 进程初始化
 int swServer_worker_init(swServer *serv, swWorker *worker)
 {
+    //cpu 亲和设置
 #ifdef HAVE_CPU_AFFINITY
     if (serv->open_cpu_affinity)
     {
@@ -575,8 +577,9 @@ int swServer_worker_init(swServer *serv, swWorker *worker)
 #endif
 
     //signal init
+    //信号初始化
     swWorker_signal_init();
-
+    //分配 发送数据缓冲区内存
     SwooleWG.buffer_input = swServer_create_worker_buffer(serv);
     if (!SwooleWG.buffer_input)
     {
@@ -600,7 +603,7 @@ int swServer_worker_init(swServer *serv, swWorker *worker)
         }
     }
 
-    worker->start_time = serv->gs->now;
+    worker->start_time = serv->gs->now;//worker 启动时间
     worker->request_time = 0;
     worker->request_count = 0;
 
@@ -886,7 +889,7 @@ int swServer_create(swServer *serv)
     swServer_update_time(serv);
 
 #ifdef SW_REACTOR_USE_SESSION
-    serv->session_list = sw_shm_calloc(SW_SESSION_LIST_SIZE, sizeof(swSession));
+    serv->session_list = sw_shm_calloc(SW_SESSION_LIST_SIZE, sizeof(swSession));//1024*1024
     if (serv->session_list == NULL)
     {
         swError("sw_shm_calloc(%ld) for session_list failed", SW_SESSION_LIST_SIZE * sizeof(swSession));
@@ -1290,6 +1293,7 @@ void swServer_master_onTimer(swTimer *timer, swTimer_node *tnode)
     }
 }
 
+//增加 process 到server
 int swServer_add_worker(swServer *serv, swWorker *worker)
 {
     swUserWorker_node *user_worker = sw_malloc(sizeof(swUserWorker_node));
@@ -1301,7 +1305,7 @@ int swServer_add_worker(swServer *serv, swWorker *worker)
     serv->user_worker_num++;
     user_worker->worker = worker;
 
-    LL_APPEND(serv->user_worker_list, user_worker);
+    LL_APPEND(serv->user_worker_list, user_worker);//放到serv->user_worker_list 中
     if (!serv->user_worker_map)
     {
         serv->user_worker_map = swHashMap_new(SW_HASHMAP_INIT_BUCKET_N, NULL);

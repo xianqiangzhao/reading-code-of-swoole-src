@@ -1331,6 +1331,7 @@ static void php_swoole_onShutdown(swServer *serv)
     SwooleG.lock.unlock(&SwooleG.lock);
 }
 
+//worker 进程启动 协程方式回调onWorkerStart php 回调函数
 static void php_swoole_onWorkerStart_coroutine(zval *zserv, zval *zworker_id)
 {
     zval *retval = NULL;
@@ -1383,6 +1384,7 @@ static void php_swoole_onWorkerStart_callback(zval *zserv, zval *zworker_id)
     }
 }
 
+//worker 进程启动后执行该函数
 static void php_swoole_onWorkerStart(swServer *serv, int worker_id)
 {
     zval *zserv = (zval *) serv->ptr2;

@@ -318,7 +318,7 @@ enum swLog_level
 enum swFactory_dispatch_mode
 {
     SW_DISPATCH_ROUND    = 1,
-    SW_DISPATCH_FDMOD    = 2,
+    SW_DISPATCH_FDMOD    = 2,//默认方式
     SW_DISPATCH_QUEUE    = 3,
     SW_DISPATCH_IPMOD    = 4,
     SW_DISPATCH_UIDMOD   = 5,
