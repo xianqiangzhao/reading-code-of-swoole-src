@@ -210,6 +210,7 @@ static void swManager_check_exit_status(swServer *serv, int worker_id, pid_t pid
     }
 }
 
+//管理进程 loop
 static int swManager_loop(swFactory *factory)
 {
     int pid, new_pid;
@@ -234,7 +235,7 @@ static int swManager_loop(swFactory *factory)
     }
 
     if (serv->onManagerStart)
-    {
+    {   //onmanager php 回调函数执行 
         serv->onManagerStart(serv);
     }
 
@@ -245,7 +246,7 @@ static int swManager_loop(swFactory *factory)
         swError("malloc[reload_workers] failed");
         return SW_ERR;
     }
-
+    //信号设定
     //for reload
     swSignal_add(SIGHUP, NULL);
     swSignal_add(SIGTERM, swManager_signal_handle);
@@ -368,6 +369,7 @@ static int swManager_loop(swFactory *factory)
                 goto error;
             }
         }
+        //worker 进程 && task 进程退出 非kill 退出
         if (SwooleG.running == 1)
         {
             //event workers
@@ -515,6 +517,7 @@ static pid_t swManager_spawn_worker(swFactory *factory, int worker_id)
     }
 }
 
+//管理进程信号捕获函数
 static void swManager_signal_handle(int sig)
 {
     switch (sig)

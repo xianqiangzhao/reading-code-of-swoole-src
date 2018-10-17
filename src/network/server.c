@@ -320,7 +320,7 @@ static int swServer_start_proxy(swServer *serv)
 {
     int ret;
     swReactor *main_reactor = SwooleG.memory_pool->alloc(SwooleG.memory_pool, sizeof(swReactor));
-
+    //创建reactor
     ret = swReactor_create(main_reactor, SW_REACTOR_MAXEVENTS);
     if (ret < 0)
     {
@@ -335,7 +335,7 @@ static int swServer_start_proxy(swServer *serv)
 
 #ifdef HAVE_SIGNALFD
     if (SwooleG.use_signalfd)
-    {
+    {   //信号安装 signalfd 方式
         swSignalfd_setup(main_reactor);
     }
 #endif
@@ -348,6 +348,7 @@ static int swServer_start_proxy(swServer *serv)
         {
             continue;
         }
+        //打开监听
         if (swPort_listen(ls) < 0)
         {
             return SW_ERR;
@@ -398,6 +399,7 @@ static int swServer_start_proxy(swServer *serv)
      */
     main_reactor->id = serv->reactor_num;
     main_reactor->ptr = serv;
+    //客户端连接进来时触发 swServer_master_onAccept
     main_reactor->setHandle(main_reactor, SW_FD_LISTEN, swServer_master_onAccept);
 
     if (serv->hooks[SW_SERVER_HOOK_MASTER_START])
