@@ -1161,13 +1161,14 @@ int swReactorThread_create(swServer *serv)
     return SW_OK;
 }
 
+//master 进程创建reactor线程
 int swReactorThread_start(swServer *serv, swReactor *main_reactor_ptr)
 {
     swThreadParam *param;
     swReactorThread *thread;
     pthread_t pidt;
     int i;
-
+    //保存 listen 到connectlist
     swServer_store_listen_socket(serv);
 
 #ifdef HAVE_REUSEPORT
@@ -1181,11 +1182,13 @@ int swReactorThread_start(swServer *serv, swReactor *main_reactor_ptr)
         {
             continue;
         }
+        //epoll 中增加监听
         main_reactor_ptr->add(main_reactor_ptr, ls->sock, SW_FD_LISTEN);
     }
 
 #ifdef HAVE_PTHREAD_BARRIER
     //init thread barrier
+    //线程障碍同步 初始化 
     pthread_barrier_init(&serv->barrier, NULL, serv->reactor_num + 1);
 #endif
 

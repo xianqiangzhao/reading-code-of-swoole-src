@@ -128,10 +128,11 @@ typedef struct _swUdpFd
     int sock;
 } swUdpFd;
 
+//线程用结构体
 typedef struct _swReactorThread
 {
-    pthread_t thread_id;
-    swReactor reactor;
+    pthread_t thread_id; //线程id
+    swReactor reactor; //reactor
     swUdpFd *udp_addrs;
     swMemoryPool *buffer_input;
 #ifdef SW_USE_RINGBUFFER
