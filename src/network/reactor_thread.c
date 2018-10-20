@@ -966,6 +966,7 @@ static int swReactorThread_onRead(swReactor *reactor, swEvent *event)
     return port->onRead(reactor, port, event);
 }
 
+//连接描述符可写回调函数
 static int swReactorThread_onWrite(swReactor *reactor, swEvent *ev)
 {
     int ret;
@@ -1182,7 +1183,7 @@ int swReactorThread_start(swServer *serv, swReactor *main_reactor_ptr)
         {
             continue;
         }
-        //epoll 中增加监听
+        //主线程 epoll 中增加监听
         main_reactor_ptr->add(main_reactor_ptr, ls->sock, SW_FD_LISTEN);
     }
 
@@ -1205,7 +1206,7 @@ int swReactorThread_start(swServer *serv, swReactor *main_reactor_ptr)
 
         param->object = serv;
         param->pti = i;
-
+        //创建线程
         if (pthread_create(&pidt, NULL, (void * (*)(void *)) swReactorThread_loop, (void *) param) < 0)
         {
             swError("pthread_create[tcp_reactor] failed. Error: %s[%d]", strerror(errno), errno);
@@ -1225,12 +1226,13 @@ int swReactorThread_start(swServer *serv, swReactor *main_reactor_ptr)
 /**
  * ReactorThread main Loop
  */
+//master 线程 loop
 static int swReactorThread_loop(swThreadParam *param)
 {
     swServer *serv = SwooleG.serv;
     int ret;
     int reactor_id = param->pti;
-
+    //线程ID
     pthread_t thread_id = pthread_self();
 
     SwooleTG.factory_lock_target = 0;
@@ -1286,7 +1288,7 @@ static int swReactorThread_loop(swThreadParam *param)
     {
         return SW_ERR;
     }
-
+    //清除所有信号
     swSignal_none();
 
     reactor->ptr = serv;
@@ -1298,9 +1300,11 @@ static int swReactorThread_loop(swThreadParam *param)
     reactor->onFinish = NULL;
     reactor->onTimeout = NULL;
     reactor->close = swReactorThread_close;
-
+    //线程绑定处理函数
     reactor->setHandle(reactor, SW_FD_CLOSE, swReactorThread_onClose);
+    //管道可读事件绑定
     reactor->setHandle(reactor, SW_FD_PIPE | SW_EVENT_READ, swReactorThread_onPipeReceive);
+    //可写事件绑定
     reactor->setHandle(reactor, SW_FD_PIPE | SW_EVENT_WRITE, swReactorThread_onPipeWrite);
 
     //listen UDP
@@ -1355,6 +1359,7 @@ static int swReactorThread_loop(swThreadParam *param)
         {
             if (i % serv->reactor_num == reactor_id)
             {
+                //worker 进程中的主管道
                 pipe_fd = serv->workers[i].pipe_master;
 
                 //for request
@@ -1368,6 +1373,7 @@ static int swReactorThread_loop(swThreadParam *param)
 
                 //for response
                 swSetNonBlock(pipe_fd);
+                //事件监听追加
                 reactor->add(reactor, pipe_fd, SW_FD_PIPE);
 
                 if (thread->notify_pipe == 0)
@@ -1401,9 +1407,10 @@ static int swReactorThread_loop(swThreadParam *param)
     }
 
 #ifdef SW_USE_TIMEWHEEL
+    // heartbeat_idle_time 表示连接最大允许空闲的时间
     if (serv->heartbeat_idle_time > 0)
     {
-        if (serv->heartbeat_idle_time < SW_TIMEWHEEL_SIZE)
+        if (serv->heartbeat_idle_time < SW_TIMEWHEEL_SIZE) //SW_TIMEWHEEL_SIZE 60
         {
             reactor->timewheel = swTimeWheel_new(serv->heartbeat_idle_time);
             reactor->heartbeat_interval = 1;
@@ -1427,11 +1434,12 @@ static int swReactorThread_loop(swThreadParam *param)
 
     //wait other thread
 #ifdef HAVE_PTHREAD_BARRIER
+    //创建的进程在这里会合
     pthread_barrier_wait(&serv->barrier);
 #else
     SW_START_SLEEP;
 #endif
-    //main loop
+    //main loop  线程进入事件loop
     reactor->wait(reactor, NULL);
     //shutdown
     reactor->free(reactor);

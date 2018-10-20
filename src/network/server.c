@@ -108,17 +108,20 @@ void swServer_close_port(swServer *serv, enum swBool_type only_stream_port)
     }
 }
 
+//main 主线程 epoll 中监听到连接事件，就回调该函数
 int swServer_master_onAccept(swReactor *reactor, swEvent *event)
 {
     swServer *serv = reactor->ptr;
     swReactor *sub_reactor;
     swSocketAddress client_addr;
     socklen_t client_addrlen = sizeof(client_addr);
+    //lister 的描述符，根据这个描述符取出 listen_host 结构体
     swListenPort *listen_host = serv->connection_list[event->fd].object;
 
     int new_fd = 0, reactor_id = 0, i;
 
     //SW_ACCEPT_AGAIN
+    //  一次循环的最大accept次数  SW_ACCEPT_MAX_COUNT = 64 
     for (i = 0; i < SW_ACCEPT_MAX_COUNT; i++)
     {
 #ifdef HAVE_ACCEPT4
@@ -154,6 +157,7 @@ int swServer_master_onAccept(swReactor *reactor, swEvent *event)
         swTrace("[Master] Accept new connection. maxfd=%d|reactor_id=%d|conn=%d", swServer_get_maxfd(serv), reactor->id, new_fd);
 
         //too many connection
+        //连接太多的话就报错
         if (new_fd >= serv->max_connection)
         {
             swoole_error_log(SW_LOG_WARNING, SW_ERROR_SERVER_TOO_MANY_SOCKET, "Too many connections [now: %d].", new_fd);
@@ -166,13 +170,15 @@ int swServer_master_onAccept(swReactor *reactor, swEvent *event)
             reactor_id = 0;
         }
         else
-        {
+        {//多进程模式下，分配该连接给子线程，分配的算发是，根据accept 返回的描述符取模线程数
             reactor_id = new_fd % serv->reactor_num;
         }
 
-        //add to connection_list
+        //add to connection_list 分配一个新的连接
         swConnection *conn = swServer_connection_new(serv, listen_host, new_fd, event->fd, reactor_id);
+        //client 地址放到conn 中
         memcpy(&conn->info.addr, &client_addr, sizeof(client_addr));
+        //取出子线程对象结构体
         sub_reactor = &serv->reactor_threads[reactor_id].reactor;
         conn->socket_type = listen_host->type;
 
@@ -195,6 +201,8 @@ int swServer_master_onAccept(swReactor *reactor, swEvent *event)
          * [!!!] new_connection function must before reactor->add
          */
         conn->connect_notify = 1;
+        //向子线程中增加新的连接描述符写监听
+        //该事件的回调函数是 swReactorThread_onWrite
         if (sub_reactor->add(sub_reactor, new_fd, SW_FD_TCP | SW_EVENT_WRITE) < 0)
         {
             bzero(conn, sizeof(swConnection));
@@ -369,11 +377,12 @@ static int swServer_start_proxy(swServer *serv)
         swWarn("ReactorThread start failed");
         return SW_ERR;
     }
-
+    //主线程继续
 #ifndef SW_USE_TIMEWHEEL
     /**
      * heartbeat thread
      */
+    //心跳检测 过期连接切断
     if (serv->heartbeat_check_interval >= 1 && serv->heartbeat_check_interval <= serv->heartbeat_idle_time)
     {
         swTrace("hb timer start, time: %d live time:%d", serv->heartbeat_check_interval, serv->heartbeat_idle_time);
@@ -417,16 +426,17 @@ static int swServer_start_proxy(swServer *serv)
     /**
      * 1 second timer, update serv->gs->now
      */
+    //設置定時器 1秒间隔执行swServer_master_onTimer 用来更新时间
     if (SwooleG.timer.add(&SwooleG.timer, 1000, 1, serv, swServer_master_onTimer) == NULL)
     {
         return SW_ERR;
     }
-
+    //执行onstart php 回调
     if (serv->onStart != NULL)
     {
         serv->onStart(serv);
     }
-
+    //主线程等待客户端连接进来
     return main_reactor->wait(main_reactor, NULL);
 }
 
@@ -1134,7 +1144,7 @@ int swServer_tcp_notify(swServer *serv, swConnection *conn, int event)
 {
     swDataHead notify_event;
     notify_event.type = event;
-    notify_event.from_id = conn->from_id;
+    notify_event.from_id = conn->from_id;//reactor_id
     notify_event.fd = conn->fd;
     notify_event.from_fd = conn->from_fd;
     notify_event.len = 0;
@@ -1316,6 +1326,7 @@ int swServer_add_worker(swServer *serv, swWorker *worker)
     return worker->id;
 }
 
+//更新 serv->gs->now 时间
 void swServer_update_time(swServer *serv)
 {
     time_t now = time(NULL);
@@ -1849,13 +1860,13 @@ static swConnection* swServer_connection_new(swServer *serv, swListenPort *ls, i
         }
     }
 
-    connection->fd = fd;
-    connection->from_id = serv->factory_mode == SW_MODE_SINGLE ? SwooleWG.id : reactor_id;
-    connection->from_fd = (sw_atomic_t) from_fd;
+    connection->fd = fd;//accept 描述符
+    connection->from_id = serv->factory_mode == SW_MODE_SINGLE ? SwooleWG.id : reactor_id;//來自线程id
+    connection->from_fd = (sw_atomic_t) from_fd;//listen fd 描述符
     connection->connect_time = serv->gs->now;
     connection->last_time = serv->gs->now;
-    connection->active = 1;
-    connection->buffer_size = ls->socket_buffer_size;
+    connection->active = 1; //激活状态
+    connection->buffer_size = ls->socket_buffer_size; //(8*1024*1024)
 
 #ifdef SW_REACTOR_SYNC_SEND
     if (serv->factory_mode != SW_MODE_THREAD && !ls->ssl)

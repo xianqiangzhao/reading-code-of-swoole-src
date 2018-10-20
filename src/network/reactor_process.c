@@ -363,6 +363,7 @@ static int swReactorProcess_loop(swProcessPool *pool, swWorker *worker)
     }
 
     //set protocol function point
+    // 设置对端数据接收处理函数，比如包大小检测，支持http 协议
     swReactorThread_set_protocol(serv, reactor);
 
     /**

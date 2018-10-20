@@ -200,7 +200,7 @@ void swPort_set_protocol(swListenPort *ls)
         ls->onRead = swPort_onRead_redis;
     }
     else
-    {
+    {   //默认
         ls->onRead = swPort_onRead_raw;
     }
 }
@@ -223,7 +223,7 @@ static int swPort_onRead_raw(swReactor *reactor, swListenPort *port, swEvent *ev
     int n;
     swDispatchData task;
     swConnection *conn =  event->socket;
-
+    // SW_BUFFER_SIZE  65535
     n = swConnection_recv(conn, task.data.data, SW_BUFFER_SIZE, 0);
     if (n < 0)
     {
