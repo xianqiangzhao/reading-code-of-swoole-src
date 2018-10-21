@@ -106,17 +106,54 @@ static __thread struct
 /**
  * [ReactorThread] notify info to worker process
  */
+//reactor 线程通知worker 进程
 static int swFactoryProcess_notify(swFactory *factory, swDataHead *ev)
 {
+
     memcpy(&sw_notify_data._send, ev, sizeof(swDataHead));
     sw_notify_data._send.len = 0;
+    //指定 workder -1  意味这要根据一定的算法分派一个worker进程
     sw_notify_data.target_worker_id = -1;
+    //回调 swFactoryProcess_dispatch
+    /*typedef struct
+     {
+         long target_worker_id;
+         swEventData data;
+    } swDispatchData;
+    */ 
     return factory->dispatch(factory, (swDispatchData *) &sw_notify_data);
 }
 
 /**
  * [ReactorThread] dispatch request to worker
  */
+//
+/*
+typedef struct
+{
+    long target_worker_id;
+    swEventData data;
+} swDispatchData;
+
+typedef struct _swEventData //事件data
+{
+    swDataHead info; //事件head
+    char data[SW_BUFFER_SIZE];//65535
+} swEventData;
+typedef struct _swDataHead
+{
+    int fd;
+    uint16_t len;
+    int16_t from_id;
+    uint8_t type;
+    uint8_t flags;
+    uint16_t from_fd;
+#ifdef SW_BUFFER_RECV_TIME
+    double time;
+#endif
+} swDataHead;
+*/
+
 static int swFactoryProcess_dispatch(swFactory *factory, swDispatchData *task)
 {
     uint32_t send_len = sizeof(task->data.info) + task->data.info.len;

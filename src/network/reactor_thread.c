@@ -447,6 +447,7 @@ int swReactorThread_onClose(swReactor *reactor, swEvent *event)
 /**
  * receive data from worker process pipe
  */
+// worker进程发送数据到管道后，子线程的epoll 取出这个事件回调函数即执行下面的函数
 static int swReactorThread_onPipeReceive(swReactor *reactor, swEvent *ev)
 {
     int n;
@@ -532,6 +533,7 @@ static int swReactorThread_onPipeReceive(swReactor *reactor, swEvent *ev)
     return SW_OK;
 }
 
+//子线程发送数据给worker
 int swReactorThread_send2worker(void *data, int len, uint16_t target_worker_id)
 {
     swServer *serv = SwooleG.serv;
@@ -539,6 +541,7 @@ int swReactorThread_send2worker(void *data, int len, uint16_t target_worker_id)
     assert(target_worker_id < serv->worker_num);
 
     int ret = -1;
+    //根据worker_id 取得worker 
     swWorker *worker = &(serv->workers[target_worker_id]);
 
     //reactor thread
@@ -972,7 +975,7 @@ static int swReactorThread_onWrite(swReactor *reactor, swEvent *ev)
     int ret;
     swServer *serv = SwooleG.serv;
     swBuffer_chunk *chunk;
-    int fd = ev->fd;
+    int fd = ev->fd;//accept 描述符
 
     if (serv->factory_mode == SW_MODE_PROCESS)
     {
@@ -988,11 +991,12 @@ static int swReactorThread_onWrite(swReactor *reactor, swEvent *ev)
 
     swTraceLog(SW_TRACE_REACTOR, "fd=%d, conn->connect_notify=%d, conn->close_notify=%d, serv->disable_notify=%d, conn->close_force=%d",
             fd, conn->connect_notify, conn->close_notify, serv->disable_notify, conn->close_force);
-
+    //判断是否执行notify 回调函数 onconnect  swServer_master_onAccept 函数中设定conn->connect_notify的值
     if (conn->connect_notify)
     {
         conn->connect_notify = 0;
 #ifdef SW_USE_TIMEWHEEL
+        //是否启用连接超时检测
         if (reactor->timewheel)
         {
             swTimeWheel_add(reactor->timewheel, conn);
@@ -1027,6 +1031,7 @@ static int swReactorThread_onWrite(swReactor *reactor, swEvent *ev)
             return reactor->set(reactor, fd, SW_EVENT_TCP | SW_EVENT_READ);
         }
     }
+    //连接关闭
     else if (conn->close_notify)
     {
 #ifdef SW_USE_OPENSSL
@@ -1373,7 +1378,7 @@ static int swReactorThread_loop(swThreadParam *param)
 
                 //for response
                 swSetNonBlock(pipe_fd);
-                //事件监听追加
+                //管道事件监听追加
                 reactor->add(reactor, pipe_fd, SW_FD_PIPE);
 
                 if (thread->notify_pipe == 0)

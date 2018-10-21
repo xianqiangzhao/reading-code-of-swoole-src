@@ -279,6 +279,7 @@ static int swWorker_onStreamPackage(swConnection *conn, char *data, uint32_t len
     return SW_OK;
 }
 
+//worker 进程执行php 回调函数onReceive
 int swWorker_onTask(swFactory *factory, swEventData *task)
 {
     swServer *serv = factory->ptr;
@@ -839,6 +840,7 @@ int swWorker_send2reactor(swEventData *ev_data, size_t sendn, int session_id)
 /**
  * receive data from reactor
  */
+//worker 进程接收到管道数据从子线程
 static int swWorker_onPipeReceive(swReactor *reactor, swEvent *event)
 {
     swEventData task;

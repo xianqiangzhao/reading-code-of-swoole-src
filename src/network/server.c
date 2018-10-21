@@ -200,7 +200,7 @@ int swServer_master_onAccept(swReactor *reactor, swEvent *event)
         /*
          * [!!!] new_connection function must before reactor->add
          */
-        conn->connect_notify = 1;
+        conn->connect_notify = 1;//是否通知 执行onconnect回调函数
         //向子线程中增加新的连接描述符写监听
         //该事件的回调函数是 swReactorThread_onWrite
         if (sub_reactor->add(sub_reactor, new_fd, SW_FD_TCP | SW_EVENT_WRITE) < 0)
@@ -1140,14 +1140,16 @@ int swServer_tcp_send(swServer *serv, int fd, void *data, uint32_t length)
 /**
  * use in master process
  */
+//连接进来通知worker 进程
 int swServer_tcp_notify(swServer *serv, swConnection *conn, int event)
 {
     swDataHead notify_event;
     notify_event.type = event;
     notify_event.from_id = conn->from_id;//reactor_id
-    notify_event.fd = conn->fd;
-    notify_event.from_fd = conn->from_fd;
+    notify_event.fd = conn->fd; //accept fd
+    notify_event.from_fd = conn->from_fd; //listen fd
     notify_event.len = 0;
+    //回调 swFactoryProcess_notify
     return serv->factory.notify(&serv->factory, &notify_event);
 }
 
@@ -1875,6 +1877,7 @@ static swConnection* swServer_connection_new(swServer *serv, swListenPort *ls, i
     }
 #endif
 
+//创建session_id`（虚拟`fd`）与真实`fd`的对应
 #ifdef SW_REACTOR_USE_SESSION
     swSession *session;
     sw_spinlock(&serv->gs->spinlock);
