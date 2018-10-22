@@ -403,6 +403,7 @@ int swReactorThread_close(swReactor *reactor, int fd)
 /**
  * close the connection
  */
+//客户端发送 0 字节的情况，连接关闭
 int swReactorThread_onClose(swReactor *reactor, swEvent *event)
 {
     swServer *serv = reactor->ptr;
@@ -420,7 +421,7 @@ int swReactorThread_onClose(swReactor *reactor, swEvent *event)
 
     notify_ev.from_id = reactor->id;
     notify_ev.fd = fd;
-    notify_ev.type = SW_EVENT_CLOSE;
+    notify_ev.type = SW_EVENT_CLOSE;//关闭连接
 
     swTraceLog(SW_TRACE_CLOSE, "client[fd=%d] close the connection.", fd);
 
@@ -434,7 +435,7 @@ int swReactorThread_onClose(swReactor *reactor, swEvent *event)
         swReactorThread_close(reactor, fd);
         return SW_OK;
     }
-    else if (reactor->del(reactor, fd) == 0)
+    else if (reactor->del(reactor, fd) == 0)//删除监听听事件
     {
         return SwooleG.factory->notify(SwooleG.factory, &notify_ev);
     }
@@ -918,6 +919,7 @@ void swReactorThread_set_protocol(swServer *serv, swReactor *reactor)
     //Write
     reactor->setHandle(reactor, SW_FD_TCP | SW_EVENT_WRITE, swReactorThread_onWrite);
     //Read
+    //描述符有数据可读时 也就是客户端发来数据后触发
     reactor->setHandle(reactor, SW_FD_TCP | SW_EVENT_READ, swReactorThread_onRead);
 
     swListenPort *ls;
@@ -932,6 +934,7 @@ void swReactorThread_set_protocol(swServer *serv, swReactor *reactor)
     }
 }
 
+//描述符有数据可读时执行
 static int swReactorThread_onRead(swReactor *reactor, swEvent *event)
 {
     swServer *serv = reactor->ptr;
@@ -955,6 +958,7 @@ static int swReactorThread_onRead(swReactor *reactor, swEvent *event)
     /**
      * TimeWheel update
      */
+    //更新时间
     if (reactor->timewheel && swTimeWheel_new_index(reactor->timewheel) != event->socket->timewheel_index)
     {
         swTimeWheel_update(reactor->timewheel, event->socket);
@@ -965,7 +969,7 @@ static int swReactorThread_onRead(swReactor *reactor, swEvent *event)
 #ifdef SW_BUFFER_RECV_TIME
     event->socket->last_time_usec = swoole_microtime();
 #endif
-
+    //swPort_onRead_raw
     return port->onRead(reactor, port, event);
 }
 

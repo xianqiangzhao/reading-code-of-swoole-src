@@ -178,7 +178,7 @@ static int swFactoryProcess_dispatch(swFactory *factory, swDispatchData *task)
         }
         else
 #endif
-        {
+        {   //分配worker
             target_worker_id = swServer_worker_schedule(serv, fd, &task->data);
         }
     }
@@ -187,6 +187,7 @@ static int swFactoryProcess_dispatch(swFactory *factory, swDispatchData *task)
         target_worker_id = task->target_worker_id;
     }
     //discard the data packet.
+    //没有找到要分配的worker 
     if (target_worker_id < 0)
     {
         return SW_OK;
@@ -213,7 +214,7 @@ static int swFactoryProcess_dispatch(swFactory *factory, swDispatchData *task)
         task->data.info.fd = conn->session_id;
         task->data.info.from_fd = conn->from_fd;
     }
-
+    //发送数据到worker 进程
     return swReactorThread_send2worker((void *) &(task->data), send_len, target_worker_id);
 }
 
