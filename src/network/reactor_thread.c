@@ -557,11 +557,12 @@ int swReactorThread_send2worker(void *data, int len, uint16_t target_worker_id)
         lock->lock(lock);
 
         swBuffer *buffer = serv->connection_list[pipe_fd].in_buffer;
+        //发送缓冲区为空时
         if (swBuffer_empty(buffer))
         {
             ret = write(pipe_fd, (void *) data, len);
             if (ret < 0 && swConnection_error(errno) == SW_WAIT)
-            {
+            {   //写管道数据失败后，设置这个描述符上的可写事件 調用 swReactorThread_onPipeWrite
                 if (thread->reactor.set(&thread->reactor, pipe_fd, SW_FD_PIPE | SW_EVENT_READ | SW_EVENT_WRITE) < 0)
                 {
                     swSysError("reactor->set(%d, PIPE | READ | WRITE) failed.", pipe_fd);
@@ -570,7 +571,7 @@ int swReactorThread_send2worker(void *data, int len, uint16_t target_worker_id)
             }
         }
         else
-        {
+        {   //增加数据到缓冲区中
             append_pipe_buffer:
             if (swBuffer_append(buffer, data, len) < 0)
             {
@@ -884,7 +885,7 @@ static int swReactorThread_onPipeWrite(swReactor *reactor, swEvent *ev)
             return (swConnection_error(errno) == SW_WAIT) ? SW_OK : SW_ERR;
         }
         else
-        {
+        {   //取出下一個chunk 中的数据再次发送给worker进程
             swBuffer_pop_chunk(buffer, chunk);
         }
     }
