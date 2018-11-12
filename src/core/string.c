@@ -16,6 +16,17 @@
 
 #include "swoole.h"
 
+/*
+typedef struct _swString
+{
+    size_t length;
+    size_t size;
+    off_t offset;
+    char *str;
+} swString;
+
+
+*/
 //创建 string
 swString *swString_new(size_t size)
 {

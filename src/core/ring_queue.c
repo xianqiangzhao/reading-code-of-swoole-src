@@ -19,6 +19,16 @@
 
 #ifdef SW_USE_RINGQUEUE_TS
 
+
+// typedef struct _swRingQueue
+// {
+//     int head; /* 头部，出队列方向*/
+//     int tail; /* 尾部，入队列方向*/
+//     int tag; /* 为空还是为满的标志位*/
+//     int size; /* 队列总尺寸 */
+//     void **data; /* 队列空间 */
+//} swRingQueue;
+
 int swRingQueue_init(swRingQueue *queue, int buffer_size)
 {
     queue->size = buffer_size;
@@ -93,7 +103,7 @@ int swRingQueue_pop(swRingQueue *queue, void **ele)
     return 0;
 }
 #else
-
+//默认走到这里
 int swRingQueue_init(swRingQueue *queue, int buffer_size)
 {
     queue->data = sw_calloc(buffer_size, sizeof(void*));

@@ -95,7 +95,7 @@ void swArray_free(swArray *array)
 //扩展内存page 也就是增加一页
 int swArray_extend(swArray *array)
 {
-    if (array->page_num == SW_ARRAY_PAGE_MAX)
+    if (array->page_num == SW_ARRAY_PAGE_MAX) // SW_ARRAY_PAGE_MAX = 1024
     {
         swWarn("max page_num is %d", array->page_num);
         return SW_ERR;

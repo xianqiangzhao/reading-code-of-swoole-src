@@ -13,9 +13,27 @@
  | Author: Tianfeng Han  <mikan.tenny@gmail.com>                        |
  +----------------------------------------------------------------------+
  */
-
+//双向链表
 #include "swoole.h"
 
+/*
+typedef struct _swLinkedList_node
+{
+    struct _swLinkedList_node *prev;
+    struct _swLinkedList_node *next;
+    ulong_t priority;
+    void *data;
+} swLinkedList_node;
+
+typedef struct
+{
+    uint32_t num;
+    uint8_t type;
+    swLinkedList_node *head;
+    swLinkedList_node *tail;
+    swDestructor dtor;
+} swLinkedList;
+*/
 swLinkedList* swLinkedList_new(uint8_t type, swDestructor dtor)
 {
     swLinkedList *q = sw_malloc(sizeof(swLinkedList));
@@ -57,6 +75,7 @@ int swLinkedList_append(swLinkedList *ll, void *data)
     return SW_OK;
 }
 
+//插入链表头部
 int swLinkedList_prepend(swLinkedList *ll, void *data)
 {
     swLinkedList_node *node = sw_malloc(sizeof(swLinkedList_node));
@@ -87,6 +106,7 @@ int swLinkedList_prepend(swLinkedList *ll, void *data)
 /**
  * Pop the element off the end of queue
  */
+//从尾部弹出节点
 void* swLinkedList_pop(swLinkedList *ll)
 {
     if (ll->tail == NULL)
@@ -95,12 +115,12 @@ void* swLinkedList_pop(swLinkedList *ll)
     }
 
     swLinkedList_node *node = ll->tail;
-    if (node == ll->head)
+    if (node == ll->head)//只有一个节点时
     {
         ll->head = NULL;
         ll->tail = NULL;
     }
-    else
+    else//尾节点指向前节点
     {
         swLinkedList_node *prev = ll->tail->prev;
         prev->next = NULL;
@@ -111,7 +131,7 @@ void* swLinkedList_pop(swLinkedList *ll)
     sw_free(node);
     return data;
 }
-
+//删除节点
 void swLinkedList_remove_node(swLinkedList *ll, swLinkedList_node *remove_node)
 {
     if (ll->num == 0 || remove_node == NULL)
@@ -155,6 +175,7 @@ void swLinkedList_remove_node(swLinkedList *ll, swLinkedList_node *remove_node)
     sw_free(remove_node);
 }
 
+//查找节点
 swLinkedList_node* swLinkedList_find(swLinkedList *ll, void *data)
 {
     if (ll->num == 0)
@@ -181,6 +202,7 @@ swLinkedList_node* swLinkedList_find(swLinkedList *ll, void *data)
 /**
  * Shift an element off the beginning of queue
  */
+//从头部弹出节点
 void* swLinkedList_shift(swLinkedList *ll)
 {
     if (ll->head == NULL)
@@ -205,6 +227,7 @@ void* swLinkedList_shift(swLinkedList *ll)
     return data;
 }
 
+//释放
 void swLinkedList_free(swLinkedList *ll)
 {
     swLinkedList_node *node = ll->head;
