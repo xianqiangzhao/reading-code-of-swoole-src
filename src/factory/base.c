@@ -17,6 +17,9 @@
 #include "swoole.h"
 #include "server.h"
 
+/*
+ base 模式
+*/
 int swFactory_create(swFactory *factory)
 {
     factory->dispatch = swFactory_dispatch;

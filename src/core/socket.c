@@ -14,12 +14,16 @@
  +----------------------------------------------------------------------+
  */
 
+/*
+socket 相关函数
+*/
 #include "swoole.h"
 #include "connection.h"
 
 #include <sys/stat.h>
 #include <poll.h>
 
+//发送文件
 int swSocket_sendfile_sync(int sock, char *filename, off_t offset, size_t length, double timeout)
 {
     int timeout_ms = timeout < 0 ? -1 : timeout * 1000;
@@ -48,15 +52,16 @@ int swSocket_sendfile_sync(int sock, char *filename, off_t offset, size_t length
 
     int n, sendn;
     while (offset < length)
-    {
+    {   //等待socket 可写
         if (swSocket_wait(sock, timeout_ms, SW_EVENT_WRITE) < 0)
         {
             close(file_fd);
             return SW_ERR;
         }
         else
-        {
+        {   //SW_SENDFILE_CHUNK_SIZE 65536
             sendn = (length - offset > SW_SENDFILE_CHUNK_SIZE) ? SW_SENDFILE_CHUNK_SIZE : length - offset;
+            //调用 系统函数sendfile 发送文件内容
             n = swoole_sendfile(sock, file_fd, &offset, sendn);
             if (n <= 0)
             {
@@ -80,13 +85,14 @@ int swSocket_sendfile_sync(int sock, char *filename, off_t offset, size_t length
 void swSocket_clean(int fd)
 {
     char buf[2048];
+    //MSG_DONTWAIT 仅本操作非阻塞
     while (recv(fd, buf, sizeof(buf), MSG_DONTWAIT) > 0);
 }
 
 /**
  * Wait socket can read or write.
  */
-//等待直到读or 可写
+//等待timeout_ms毫秒到读or 可写
 int swSocket_wait(int fd, int timeout_ms, int events)
 {
     struct pollfd event;
@@ -124,6 +130,7 @@ int swSocket_wait(int fd, int timeout_ms, int events)
 /**
  * Wait some sockets can read or write.
  */
+//等待多个描述符，看是否可读写
 int swSocket_wait_multi(int *list_of_fd, int n_fd, int timeout_ms, int events)
 {
     assert(n_fd < 65535);
@@ -201,7 +208,7 @@ int swSocket_write_blocking(int __fd, void *__data, int __len)
 
     return written;
 }
-
+//阻塞读__len字节数据到__data 中
 int swSocket_recv_blocking(int fd, void *__data, size_t __len, int flags)
 {
     int ret;
@@ -261,13 +268,15 @@ int swSocket_unix_sendto(int server_sock, char *dst_path, char *data, uint32_t l
     strncpy(addr.sun_path, dst_path, sizeof(addr.sun_path));
     return swSocket_sendto_blocking(server_sock, data, len, 0, (struct sockaddr *) &addr, sizeof(addr));
 }
-
+//udp 发送数据包
 int swSocket_sendto_blocking(int fd, void *__buf, size_t __n, int flag, struct sockaddr *__addr, socklen_t __addr_len)
 {
     int n = 0;
 
     while (1)
     {
+        //sendto 用于发送未建立连接的UDP数据包
+
         n = sendto(fd, __buf, __n, flag, __addr, __addr_len);
         if (n >= 0)
         {

@@ -13,7 +13,9 @@
   | Author: Tianfeng Han  <mikan.tenny@gmail.com>                        |
   +----------------------------------------------------------------------+
 */
-
+/*
+写 log 
+*/
 #include "swoole.h"
 
 #define SW_LOG_BUFFER_SIZE 1024

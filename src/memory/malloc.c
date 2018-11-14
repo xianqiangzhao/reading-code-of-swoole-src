@@ -20,6 +20,16 @@ static void* swMalloc_alloc(swMemoryPool *pool, uint32_t size);
 static void swMalloc_free(swMemoryPool *pool, void *ptr);
 static void swMalloc_destroy(swMemoryPool *pool);
 
+/*
+typedef struct _swMemoryPool
+{
+  void *object;
+  void* (*alloc)(struct _swMemoryPool *pool, uint32_t size);
+  void (*free)(struct _swMemoryPool *pool, void *ptr);
+  void (*destroy)(struct _swMemoryPool *pool);
+} swMemoryPool;
+
+*/
 swMemoryPool* swMalloc_new()
 {
     swMemoryPool *pool = sw_malloc(sizeof(swMemoryPool));

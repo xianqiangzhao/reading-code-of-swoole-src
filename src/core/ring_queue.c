@@ -104,8 +104,10 @@ int swRingQueue_pop(swRingQueue *queue, void **ele)
 }
 #else
 //默认走到这里
+
 int swRingQueue_init(swRingQueue *queue, int buffer_size)
-{
+{   
+    //分配存储空间用来存储指针类型
     queue->data = sw_calloc(buffer_size, sizeof(void*));
     if (queue->data == NULL)
     {
@@ -118,22 +120,25 @@ int swRingQueue_init(swRingQueue *queue, int buffer_size)
     queue->tag = 0;
     return 0;
 }
-
+//释放
 void swRingQueue_free(swRingQueue *queue)
 {
     sw_free(queue->data);
 }
 
+//推数据进来
 int swRingQueue_push(swRingQueue *queue, void *push_data)
-{
+{   // ( (q->head == q->tail) && (q->tag == 1))
+    //判断是否没有空间
     if (swRingQueue_full(queue))
     {
         return SW_ERR;
     }
-
+    //数据放到队尾
     queue->data[queue->tail] = push_data;
+    //队尾移动
     queue->tail = (queue->tail + 1) % queue->size;
-
+    //队尾和对首相等时，设置queue->tag 为1
     if (queue->tail == queue->head)
     {
         queue->tag = 1;
@@ -141,16 +146,19 @@ int swRingQueue_push(swRingQueue *queue, void *push_data)
     return SW_OK;
 }
 
+//弹出数据
 int swRingQueue_pop(swRingQueue *queue, void **pop_data)
-{
+{   //( (q->head == q->tail) && (q->tag == 0))
+    //判断是否为空
     if (swRingQueue_empty(queue))
     {
         return SW_ERR;
     }
-
+    //弹出队首数据
     *pop_data = queue->data[queue->head];
+    //队首移动
     queue->head = (queue->head + 1) % queue->size;
-
+    //队尾和队首相等时，队列为空
     if (queue->tail == queue->head)
     {
         queue->tag = 0;

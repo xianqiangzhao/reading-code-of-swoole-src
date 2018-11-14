@@ -118,7 +118,7 @@ int swClient_create(swClient *cli, int type, int async)
         cli->socket = sw_malloc(sizeof(swConnection));
     }
 
-    cli->buffer_input_size = SW_CLIENT_BUFFER_SIZE;
+    cli->buffer_input_size = SW_CLIENT_BUFFER_SIZE;//65536
 
     if (!cli->socket)
     {

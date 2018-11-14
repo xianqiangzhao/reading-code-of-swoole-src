@@ -333,7 +333,8 @@ enum swWorker_status
     SW_WORKER_DEL  = 3,
 };
 //-------------------------------------------------------------------------------
-
+//日志出力
+//__VA_ARGS__ 宏的说明 https://blog.csdn.net/q2519008/article/details/80934815
 #define swWarn(str,...)        SwooleGS->lock_2.lock(&SwooleGS->lock_2);\
 snprintf(sw_error,SW_ERROR_MSG_SIZE,"%s: " str,__func__,##__VA_ARGS__);\
 swLog_put(SW_LOG_WARNING, sw_error);\
@@ -413,6 +414,7 @@ enum swTraceType
 
 #define swTrace(str,...)       swTraceLog(SW_TRACE_NORMAL, str, ##__VA_ARGS__)
 
+//　Linux提供一个系统调用运行进程主动让出执行权 https://blog.csdn.net/magod/article/details/7265555
 #define swYield()              sched_yield() //or usleep(1)
 //#define swYield()              usleep(500000)
 #define SW_MAX_FDTYPE          32 //32 kinds of event
@@ -736,6 +738,7 @@ static sw_inline int swString_extend_align(swString *str, size_t _new_size)
 #define swString_length(s) (s->length)
 #define swString_ptr(s) (s->str)
 //------------------------------Base--------------------------------
+//数据头结构体
 typedef struct _swDataHead
 {
     int fd;

@@ -20,6 +20,39 @@
 /**
  * create new buffer
  */
+
+
+/*
+
+typedef struct _swBuffer_chunk
+{
+    uint32_t type;
+    uint32_t length;
+    uint32_t offset;
+    union
+    {
+        void *ptr;
+        struct
+        {
+            uint32_t val1;
+            uint32_t val2;
+        } data;
+    } store;
+    uint32_t size;
+    void (*destroy)(struct _swBuffer_chunk *chunk);
+    struct _swBuffer_chunk *next;
+} swBuffer_chunk;
+
+typedef struct _swBuffer
+{
+    int fd;
+    uint8_t chunk_num; //chunk数量
+    uint16_t chunk_size;
+    uint32_t length;
+    swBuffer_chunk *head;
+    swBuffer_chunk *tail;
+} swBuffer;
+*/
 swBuffer* swBuffer_new(int chunk_size)
 {
     swBuffer *buffer = sw_malloc(sizeof(swBuffer));

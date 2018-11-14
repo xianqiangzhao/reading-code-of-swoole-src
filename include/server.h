@@ -845,7 +845,8 @@ static sw_inline swSession* swServer_get_session(swServer *serv, uint32_t sessio
 }
 
 static sw_inline int swServer_get_fd(swServer *serv, uint32_t session_id)
-{
+{   
+    //SW_SESSION_LIST_SIZE 1024
     return serv->session_list[session_id % SW_SESSION_LIST_SIZE].fd;
 }
 

@@ -19,7 +19,8 @@
 #ifdef HAVE_KQUEUE
 
 #include <sys/uio.h>
-
+//发送文件内容
+// out_fd 是socket fd ,in_fd 是要发送的文件描述符， offset 是偏移量，每次发送会更新这个偏移量，size 是发送大小
 int swoole_sendfile(int out_fd, int in_fd, off_t *offset, size_t size)
 {
     off_t sent_bytes = 0;

@@ -20,6 +20,17 @@
 //申请共享内存
 void* sw_shm_malloc(size_t size)
 {
+    /*
+    typedef struct _swShareMemory_mmap
+    {
+        size_t size;
+        char mapfile[SW_SHM_MMAP_FILE_LEN];
+        int tmpfd;
+        int key;
+        int shmid;
+        void *mem;
+    } swShareMemory;
+    */
     swShareMemory object;
     void *mem;
     size += sizeof(swShareMemory);//size = 申请的size + sizeof(swShareMemory)

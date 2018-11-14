@@ -32,6 +32,7 @@
 
 SwooleGS_t *SwooleGS;
 
+//swoole 模块初始化
 void swoole_init(void)
 {
     struct rlimit rlmt;
@@ -92,7 +93,7 @@ void swoole_init(void)
     }
     else
     {
-        SwooleG.max_sockets = (uint32_t) rlmt.rlim_cur;
+        SwooleG.max_sockets = (uint32_t) rlmt.rlim_cur;//系统支持的最大socket文件描述
     }
 
     SwooleTG.buffer_stack = swString_new(SW_STACK_BUFFER_SIZE);
@@ -210,6 +211,7 @@ void swoole_dump_hex(char *data, int outlen)
 /**
  * Recursive directory creation
  */
+//创建文件夹
 int swoole_mkdir_recursive(const char *dir)
 {
     char tmp[PATH_MAX];
@@ -251,6 +253,7 @@ int swoole_mkdir_recursive(const char *dir)
 /**
  * get parent dir name
  */
+//返回文件夹名
 char* swoole_dirname(char *file)
 {
     char *dirname = sw_strdup(file);
@@ -492,7 +495,7 @@ void swoole_rtrim(char *str, int len)
         }
     }
 }
-
+//创建临时文件
 int swoole_tmpfile(char *filename)
 {
 #if defined(HAVE_MKOSTEMP) && defined(HAVE_EPOLL)
@@ -526,7 +529,7 @@ long swoole_file_get_size(FILE *fp)
     }
     return size;
 }
-
+//取得文件size
 long swoole_file_size(char *filename)
 {
     struct stat file_stat;
@@ -543,7 +546,7 @@ long swoole_file_size(char *filename)
     }
     return file_stat.st_size;
 }
-
+//取得文件内容
 swString* swoole_file_get_contents(char *filename)
 {
     long filesize = swoole_file_size(filename);
@@ -629,7 +632,7 @@ int swoole_file_put_contents(char *filename, char *content, size_t length)
         chunk_size = length - written;
         if (chunk_size > SW_BUFFER_SIZE_BIG)
         {
-            chunk_size = SW_BUFFER_SIZE_BIG;
+            chunk_size = SW_BUFFER_SIZE_BIG;//65536
         }
         n = write(fd, content + written, chunk_size);
         if (n < 0)
@@ -1167,12 +1170,12 @@ SW_API void swoole_call_hook(enum swGlobal_hook_type type, void *arg)
         node = node->next;
     }
 }
-
+//执行 shell 
 int swoole_shell_exec(char *command, pid_t *pid)
 {
     pid_t child_pid;
     int fds[2];
-    if (pipe(fds) < 0)
+    if (pipe(fds) < 0)//创建管道
     {
         return SW_ERR;
     }
@@ -1183,10 +1186,10 @@ int swoole_shell_exec(char *command, pid_t *pid)
         return SW_ERR;
     }
 
-    if (child_pid == 0)
+    if (child_pid == 0) //子进程关闭管道读
     {
-        close(fds[SW_PIPE_READ]);
-        dup2(fds[SW_PIPE_WRITE], 1);
+        close(fds[SW_PIPE_READ]);//SW_PIPE_READ 0
+        dup2(fds[SW_PIPE_WRITE], 1);//写端 复制给1描述符
 
         //Needed so negative PIDs can kill children of /bin/sh
         setpgid(child_pid, child_pid);
@@ -1194,13 +1197,14 @@ int swoole_shell_exec(char *command, pid_t *pid)
         exit(0);
     }
     else
-    {
+    {//父进程
         *pid = child_pid;
         close(fds[SW_PIPE_WRITE]);
     }
-    return fds[SW_PIPE_READ];
+    return fds[SW_PIPE_READ];//返回读端描述符
 }
 
+// swoole_string_format(64, "/tmp/swoole.%d.sock", serv->gs->master_pid);
 char* swoole_string_format(size_t n, const char *format, ...)
 {
     char *buf = sw_malloc(n);
