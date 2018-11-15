@@ -13,7 +13,12 @@
   | Author: Tianfeng Han  <mikan.tenny@gmail.com>                        |
   +----------------------------------------------------------------------+
 */
+/*
+socket 数据接收函数
+例如默认 接收数据函数swPort_onRead_raw
+http 服务器 swPort_onRead_http
 
+*/
 #include "server.h"
 #include "http.h"
 #include "http2.h"
@@ -30,27 +35,48 @@ static int swPort_onRead_http(swReactor *reactor, swListenPort *lp, swEvent *eve
 static int swPort_onRead_redis(swReactor *reactor, swListenPort *lp, swEvent *event);
 static int swPort_http_static_handler(swHttpRequest *request, swConnection *conn);
 
+//端口初始化 swServer_add_port 中调用
 void swPort_init(swListenPort *port)
 {
     port->sock = 0;
     port->ssl = 0;
 
     //listen backlog
-    port->backlog = SW_BACKLOG;
+    port->backlog = SW_BACKLOG; //SW_BACKLOG  512
     //tcp keepalive
-    port->tcp_keepcount = SW_TCP_KEEPCOUNT;
-    port->tcp_keepinterval = SW_TCP_KEEPINTERVAL;
-    port->tcp_keepidle = SW_TCP_KEEPIDLE;
+    port->tcp_keepcount = SW_TCP_KEEPCOUNT; //5
+    port->tcp_keepinterval = SW_TCP_KEEPINTERVAL;//60
+    port->tcp_keepidle = SW_TCP_KEEPIDLE; //3600
     port->open_tcp_nopush = 1;
+
+       
+    // typedef struct _swProtocol
+    // {
+    //     /* one package: eof check */
+    //     uint8_t split_by_eof;
+    //     uint8_t package_eof_len;  //数据缓存结束符长度
+    //     char package_eof[SW_DATA_EOF_MAXLEN + 1];  //数据缓存结束符
+
+    //     char package_length_type;  //length field type
+    //     uint8_t package_length_size;
+    //     uint16_t package_length_offset;  //第几个字节开始表示长度
+    //     uint16_t package_body_offset;  //第几个字节开始计算长度
+    //     uint32_t package_max_length;
+
+    //     void *private_data;
+
+    //     int (*onPackage)(swConnection *conn, char *data, uint32_t length);
+    //     int (*get_package_length)(struct _swProtocol *protocol, swConnection *conn, char *data, uint32_t length);
+    // } swProtocol;
 
     port->protocol.package_length_type = 'N';
     port->protocol.package_length_size = 4;
     port->protocol.package_body_offset = 4;
-    port->protocol.package_max_length = SW_BUFFER_INPUT_SIZE;
+    port->protocol.package_max_length = SW_BUFFER_INPUT_SIZE;//SW_BUFFER_INPUT_SIZE = 1024*1024*2
 
-    port->socket_buffer_size = SwooleG.socket_buffer_size;
+    port->socket_buffer_size = SwooleG.socket_buffer_size;//SW_SOCKET_BUFFER_SIZE (8*1024*1024)
 
-    char eof[] = SW_DATA_EOF;
+    char eof[] = SW_DATA_EOF;// "\r\n\r\n"
     port->protocol.package_eof_len = sizeof(SW_DATA_EOF) - 1;
     memcpy(port->protocol.package_eof, eof, port->protocol.package_eof_len);
 }
@@ -94,6 +120,7 @@ int swPort_enable_ssl_encrypt(swListenPort *ls)
 }
 #endif
 
+ //打开监听
 int swPort_listen(swListenPort *ls)
 {
     int sock = ls->sock;
@@ -107,6 +134,11 @@ int swPort_listen(swListenPort *ls)
     }
 
 #ifdef TCP_DEFER_ACCEPT
+    /*将允许一个监听者只在有数据到达这个套接字的时候才会被唤醒
+    客户端连接到服务器后不会立即触发accept
+    在5秒内客户端发送数据，此时会同时顺序触发accept/onConnect/onReceive
+    在5秒内客户端没有发送任何数据，此时会触发accept/onConnect
+    */
     if (ls->tcp_defer_accept)
     {
         if (setsockopt(sock, IPPROTO_TCP, TCP_DEFER_ACCEPT, (const void*) &ls->tcp_defer_accept, sizeof(int)) < 0)
@@ -117,6 +149,9 @@ int swPort_listen(swListenPort *ls)
 #endif
 
 #ifdef TCP_FASTOPEN
+    /*
+    开启TCP快速握手特性。此项特性，可以提升TCP短连接的响应速度，在客户端完成握手的第三步，发送SYN包时携带数据。
+    */
     if (ls->tcp_fastopen)
     {
         if (setsockopt(sock, IPPROTO_TCP, TCP_FASTOPEN, (const void*) &ls->tcp_fastopen, sizeof(int)) < 0)
@@ -127,6 +162,16 @@ int swPort_listen(swListenPort *ls)
 #endif
 
 #ifdef SO_KEEPALIVE
+    /*
+    TCP-Keepalive死连接检测
+    在TCP中有一个Keep-Alive的机制可以检测死连接，
+    应用层如果对于死链接周期不敏感或者没有实现心跳机制，可以使用操作系统提供的keepalive机制来踢掉死链接。 
+    在server_swoole_set中增加open_tcp_keepalive=>1表示启用tcp keepalive。
+     另外，有3个选项可以对keepalive的细节进行调整。
+     tcp_keepidle   单位秒，连接在n秒内没有数据请求，将开始对此连接进行探测。
+     tcp_keepcount 探测的次数，超过次数后将close此连接。
+     tcp_keepinterval 探测的间隔时间，单位秒。
+    */
     if (ls->open_tcp_keepalive == 1)
     {
         if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (void *) &option, sizeof(option)) < 0)
@@ -140,14 +185,14 @@ int swPort_listen(swListenPort *ls)
 #endif
     }
 #endif
-
+    //当缓存区达到最高水位
     ls->buffer_high_watermark = ls->socket_buffer_size * 0.8;
     ls->buffer_low_watermark = 0;
 
     return SW_OK;
 }
 
-
+//mast 线程 swReactorThread_loop 调用该函数
 void swPort_set_protocol(swListenPort *ls)
 {
     //Thread mode must copy the data.
@@ -170,7 +215,7 @@ void swPort_set_protocol(swListenPort *ls)
         ls->protocol.onPackage = swReactorThread_dispatch;
         ls->onRead = swPort_onRead_check_length;
     }
-    else if (ls->open_http_protocol)
+    else if (ls->open_http_protocol)//swoole_http_server 时设置该值
     {
         if (ls->open_websocket_protocol)
         {
@@ -186,7 +231,7 @@ void swPort_set_protocol(swListenPort *ls)
             ls->protocol.onPackage = swReactorThread_dispatch;
         }
 #endif
-        ls->onRead = swPort_onRead_http;
+        ls->onRead = swPort_onRead_http; //默认
     }
     else if (ls->open_mqtt_protocol)
     {
@@ -204,7 +249,7 @@ void swPort_set_protocol(swListenPort *ls)
         ls->onRead = swPort_onRead_raw;
     }
 }
-
+//清除设定
 void swPort_clear_protocol(swListenPort *ls)
 {
     ls->open_eof_check = 0;
@@ -217,7 +262,7 @@ void swPort_clear_protocol(swListenPort *ls)
     ls->open_mqtt_protocol = 0;
     ls->open_redis_protocol = 0;
 }
-
+//默认 swoole_server 读取client 数据函数
 static int swPort_onRead_raw(swReactor *reactor, swListenPort *port, swEvent *event)
 {
     int n;
@@ -239,18 +284,19 @@ static int swPort_onRead_raw(swReactor *reactor, swListenPort *port, swEvent *ev
             return SW_OK;
         }
     }
-    else if (n == 0)
+    else if (n == 0)//接收数据为0时 client 关闭连接
     {
         close_fd: swReactorThread_onClose(reactor, event);
         return SW_OK;
     }
     else
     {
-        task.data.info.fd = event->fd;
-        task.data.info.from_id = event->from_id;
+        task.data.info.fd = event->fd;//socket fd
+        task.data.info.from_id = event->from_id; //线程 id
         task.data.info.len = n;
-        task.data.info.type = SW_EVENT_TCP;
+        task.data.info.type = SW_EVENT_TCP;//事件类型
         task.target_worker_id = -1;
+        //分发数据给worker
         return swReactorThread_dispatch(conn, task.data.data, task.data.info.len);
     }
     return SW_OK;

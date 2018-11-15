@@ -213,7 +213,14 @@ static void swManager_check_exit_status(swServer *serv, int worker_id, pid_t pid
     }
 }
 
-//管理进程 loop
+/*管理进程 loop
+    通常管理进程阻塞在 wait
+    当管理进程收到信号是 比如重启work进程 kill  -SIGUSR1  管理进程pid 时，wait 被中断，进入if (pid < 0) 的逻辑，
+    判断是ManagerProcess.reload_all_worker == 1的话
+    goto  kill_worker里面去，这样取出第一个worker pid ，执行kill 
+    然后 wait阻塞，worker 进程退出发送退出信号给manager 进程，wait 返回 进入  if (pid >=0) 的逻辑
+    拉起一个新的worker 进程
+*/
 static int swManager_loop(swFactory *factory)
 {
     int pid, new_pid;
@@ -392,10 +399,11 @@ static int swManager_loop(swFactory *factory)
                 }
 
                 //Check the process return code and signal
+                //检查退出状态
                 swManager_check_exit_status(serv, i, pid, status);
 
                 while (1)
-                {
+                {   //拉起一个新的worker 进程
                     new_pid = swManager_spawn_worker(factory, i);
                     if (new_pid < 0)
                     {
@@ -434,6 +442,7 @@ static int swManager_loop(swFactory *factory)
             }
             if (pid == reload_worker_pid)
             {
+                //退出进程==kill 的进程pid 的话，重新启动的进程数++
                 reload_worker_i++;
             }
         }
@@ -458,7 +467,7 @@ static int swManager_loop(swFactory *factory)
             }
         }
     }
-
+    //管理进程退出
     sw_free(reload_workers);
     swSignal_none();
     //kill all child process
