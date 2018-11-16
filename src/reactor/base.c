@@ -284,7 +284,7 @@ int swReactor_close(swReactor *reactor, int fd)
     return close(fd);
 }
 
-//发送数据到 fd
+//发送数据到 管道描述符 fd 
 int swReactor_write(swReactor *reactor, int fd, void *buf, int n)
 {
     int ret;

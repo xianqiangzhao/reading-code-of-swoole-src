@@ -1083,6 +1083,7 @@ swPipe * swServer_get_pipe_object(swServer *serv, int pipe_fd)
     return (swPipe *) serv->connection_list[pipe_fd].object;
 }
 
+//数据发送
 int swServer_tcp_send(swServer *serv, int fd, void *data, uint32_t length)
 {
     swSendData _send;
@@ -1132,6 +1133,7 @@ int swServer_tcp_send(swServer *serv, int fd, void *data, uint32_t length)
             _send.info.len = length;
             _send.length = 0;
         }
+        //swFactoryProcess_finish
         return factory->finish(factory, &_send);
     }
     return SW_OK;
@@ -1892,6 +1894,7 @@ static swConnection* swServer_connection_new(swServer *serv, swListenPort *ls, i
         {
             session_id = 1;
         }
+        //取得一个空的session
         session = swServer_get_session(serv, session_id);
         //vacancy
         if (session->fd == 0)

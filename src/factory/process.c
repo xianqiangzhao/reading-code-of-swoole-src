@@ -211,6 +211,7 @@ static int swFactoryProcess_dispatch(swFactory *factory, swDispatchData *task)
             }
         }
         //converted fd to session_id
+        //把连接中的session_id 给数据头， $server->send($fd,$data) 中的fd 就是 session_id，通过session_id 取的真正的fd 
         task->data.info.fd = conn->session_id;
         task->data.info.from_fd = conn->from_fd;
     }
@@ -225,7 +226,7 @@ static int swFactoryProcess_finish(swFactory *factory, swSendData *resp)
 {
     int ret, sendn;
     swServer *serv = factory->ptr;
-    int session_id = resp->info.fd;
+    int session_id = resp->info.fd;//取得 session_id
 
     swConnection *conn;
     if (resp->info.type != SW_EVENT_CLOSE)
@@ -233,7 +234,7 @@ static int swFactoryProcess_finish(swFactory *factory, swSendData *resp)
         conn = swServer_connection_verify(serv, session_id);
     }
     else
-    {
+    {   //根据session_id 取得连接 conn
         conn = swServer_connection_verify_no_ssl(serv, session_id);
     }
     if (!conn)

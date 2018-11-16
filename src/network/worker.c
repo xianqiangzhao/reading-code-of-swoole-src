@@ -820,6 +820,7 @@ int swWorker_loop(swFactory *factory, int worker_id)
 /**
  * Send data to ReactorThread
  */
+//发送数据给reactor 
 int swWorker_send2reactor(swEventData *ev_data, size_t sendn, int session_id)
 {
     int ret;
@@ -828,6 +829,7 @@ int swWorker_send2reactor(swEventData *ev_data, size_t sendn, int session_id)
 
     if (SwooleG.main_reactor)
     {
+        //写数据到管道描述符 swReactor_write
         ret = SwooleG.main_reactor->write(SwooleG.main_reactor, _pipe_fd, ev_data, sendn);
     }
     else
