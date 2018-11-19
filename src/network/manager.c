@@ -574,6 +574,7 @@ static void swManager_signal_handle(int sig)
     }
 }
 
+//用户进程退出拉起新进程
 int swManager_wait_user_worker(swProcessPool *pool, pid_t pid, int status)
 {
     swServer *serv = SwooleG.serv;
@@ -589,6 +590,7 @@ int swManager_wait_user_worker(swProcessPool *pool, pid_t pid, int status)
     }
 }
 
+//管理进程退出 kill 掉所用用户进程
 void swManager_kill_user_worker(swServer *serv)
 {
     if (!serv->user_worker_map)
