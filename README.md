@@ -1,7 +1,7 @@
 # reading-code-of-swoole-src
 swoole 源码阅读
 
-# 8/25~10/10 update
+# 8/25~11/26 update
  1.  php-wrapper.h 包裹宏定义分析。
  2.  php_swoole.h 函数定义等分析。
  3.  swoole.c  函数定义，这个文件中主要定义class ，执行初始化工作。
@@ -18,3 +18,9 @@ swoole 源码阅读
  14. swoole_event.c 事件管理。
  15. swoole_time.c 定时器管理。
  16. swoole_server.c 服务器（核心），http server ,udp server ,socket server 都继承这个class。
+
+# 阶段总结
+ 协程部分原来是zend 执行栈的切换，4.0以后用的是boost （http://www.boost.org/）来实现。
+ 这部分以后有空在看。
+
+ 最后看懂和会用是两回事，接下来我准备些个扩展练练了～

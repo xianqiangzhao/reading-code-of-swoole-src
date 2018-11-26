@@ -63,6 +63,7 @@ __thread swThreadG SwooleTG;
 int16_t sw_errno;
 char sw_error[SW_ERROR_MSG_SIZE];
 
+//移除监听socket
 static void swServer_disable_accept(swReactor *reactor)
 {
     swListenPort *ls;
@@ -78,6 +79,7 @@ static void swServer_disable_accept(swReactor *reactor)
     }
 }
 
+//恢复socket监听
 void swServer_enable_accept(swReactor *reactor)
 {
     swListenPort *ls;
@@ -93,6 +95,7 @@ void swServer_enable_accept(swReactor *reactor)
     }
 }
 
+//关闭socket
 void swServer_close_port(swServer *serv, enum swBool_type only_stream_port)
 {
     swListenPort *ls;
@@ -810,7 +813,7 @@ int swServer_start(swServer *serv)
         swoole_file_put_contents(serv->pid_file, SwooleTG.buffer_stack->str, ret);
     }
     if (serv->factory_mode == SW_MODE_SINGLE)
-    {
+    {   
         ret = swReactorProcess_start(serv);
     }
     else
@@ -1725,6 +1728,7 @@ static void swServer_signal_hanlder(int sig)
 }
 
 #ifndef SW_USE_TIMEWHEEL
+//心跳监测
 static void swHeartbeatThread_start(swServer *serv)
 {
     swThreadParam *param;
@@ -1738,7 +1742,7 @@ static void swHeartbeatThread_start(swServer *serv)
 
     param->object = serv;
     param->pti = 0;
-
+    //拉起一个新的线程
     if (pthread_create(&thread_id, NULL, (void * (*)(void *)) swHeartbeatThread_loop, (void *) param) < 0)
     {
         swWarn("pthread_create[hbcheck] fail");
@@ -1764,8 +1768,8 @@ static void swHeartbeatThread_loop(swThreadParam *param)
 
     while (SwooleG.running)
     {
-        serv_max_fd = swServer_get_maxfd(serv);
-        serv_min_fd = swServer_get_minfd(serv);
+        serv_max_fd = swServer_get_maxfd(serv);//最大连接数
+        serv_min_fd = swServer_get_minfd(serv);//最小连接数
 
         checktime = (int) time(NULL) - serv->heartbeat_idle_time;
 
@@ -1819,6 +1823,7 @@ static void swHeartbeatThread_loop(swThreadParam *param)
 /**
  * new connection
  */
+//建立新的连接
 static swConnection* swServer_connection_new(swServer *serv, swListenPort *ls, int fd, int from_fd, int reactor_id)
 {
     swConnection* connection = NULL;
@@ -1846,7 +1851,7 @@ static swConnection* swServer_connection_new(swServer *serv, swListenPort *ls, i
         connection->tcp_nodelay = 1;
     }
 
-    //socket recv buffer size
+    //socket recv buffer size  设置接收buffer 大小
     if (ls->kernel_socket_recv_buffer_size > 0)
     {
         if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &ls->kernel_socket_recv_buffer_size, sizeof(int)))
@@ -1855,7 +1860,7 @@ static swConnection* swServer_connection_new(swServer *serv, swListenPort *ls, i
         }
     }
 
-    //socket send buffer size
+    //socket send buffer size 设置发送buffer 大小
     if (ls->kernel_socket_send_buffer_size > 0)
     {
         if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &ls->kernel_socket_send_buffer_size, sizeof(int)) < 0)

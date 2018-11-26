@@ -18,6 +18,16 @@
 
 #ifdef SW_USE_TIMEWHEEL
 
+/*
+typedef struct
+{
+    uint16_t current;
+    uint16_t size;
+    swHashMap **wheel;
+
+} swTimeWheel;
+*/
+
 swTimeWheel* swTimeWheel_new(uint16_t size)
 {
     swTimeWheel *tw = sw_malloc(sizeof(swTimeWheel));

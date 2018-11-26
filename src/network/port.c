@@ -231,7 +231,7 @@ void swPort_set_protocol(swListenPort *ls)
             ls->protocol.onPackage = swReactorThread_dispatch;
         }
 #endif
-        ls->onRead = swPort_onRead_http; //默认
+        ls->onRead = swPort_onRead_http;
     }
     else if (ls->open_mqtt_protocol)
     {

@@ -13,7 +13,7 @@
  | Author: Tianfeng Han  <mikan.tenny@gmail.com>                        |
  +----------------------------------------------------------------------+
  */
-
+//base 模式
 #include "server.h"
 
 static int swReactorProcess_loop(swProcessPool *pool, swWorker *worker);
